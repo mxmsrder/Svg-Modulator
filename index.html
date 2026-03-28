@@ -1,14 +1,164 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Basic Website</title>
-	<!-- Three.js CDN -->
-	<script src="https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SVG Oscillator Editor</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
-<body style="margin:0;">
-	<!-- Canvas will be injected by Three.js -->
-	<script src="main.js"></script>
+<body>
+
+  <!-- TOOLBAR -->
+  <header id="toolbar">
+    <div class="toolbar-group">
+      <label class="btn" title="Import SVG file">
+        Import SVG
+        <input type="file" id="file-input" accept=".svg" hidden>
+      </label>
+      <div class="dropdown">
+        <button class="btn" id="export-btn">Export ▾</button>
+        <div class="dropdown-menu" id="export-menu">
+          <button data-action="export-svg">Static SVG</button>
+          <button data-action="export-smil">Animated SVG (SMIL)</button>
+          <button data-action="export-state">Save State (JSON)</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toolbar-group toolbar-center">
+      <button class="btn toggle-btn active" id="toggle-anchors" title="Show anchor points">
+        ● Points
+      </button>
+      <button class="btn toggle-btn active" id="toggle-handles" title="Show bezier handles">
+        ◇ Handles
+      </button>
+      <button class="btn toggle-btn" id="toggle-wireframe" title="Show wireframe only">
+        ⬜ Wire
+      </button>
+    </div>
+
+    <div class="toolbar-group toolbar-right">
+      <label class="toolbar-label">BPM</label>
+      <input type="number" id="bpm-input" value="120" min="10" max="400" step="1" class="num-input">
+      <button class="btn" id="btn-zoom-out" title="Zoom out">−</button>
+      <span id="zoom-display">100%</span>
+      <button class="btn" id="btn-zoom-in" title="Zoom in">+</button>
+      <button class="btn" id="btn-zoom-fit" title="Fit to view">Fit</button>
+      <div class="toolbar-sep"></div>
+      <button class="btn btn-play" id="btn-play" title="Play animation">▶ Play</button>
+      <button class="btn" id="btn-stop" title="Stop animation">■ Stop</button>
+    </div>
+  </header>
+
+  <!-- MAIN AREA -->
+  <main id="main-layout">
+
+    <!-- LEFT: Oscillators -->
+    <aside id="osc-panel">
+      <div class="panel-header">
+        <span>Oscillators</span>
+        <button class="btn btn-sm" id="add-osc-btn">+ Add</button>
+      </div>
+      <div id="osc-list"></div>
+    </aside>
+
+    <!-- CENTER: SVG Canvas -->
+    <section id="canvas-area">
+      <div id="canvas-drop-zone">
+        <div id="drop-hint">
+          <p>Drop an SVG file here</p>
+          <p class="sub">or use Import SVG above</p>
+        </div>
+        <!-- SVG viewport injected by CanvasViewport.js -->
+        <svg id="editor-svg" xmlns="http://www.w3.org/2000/svg">
+          <g id="svg-content-group"></g>
+          <!-- Overlay drawn on top, no pointer events -->
+          <g id="overlay-group" style="pointer-events:none"></g>
+          <!-- Invisible hit targets for interaction -->
+          <g id="interaction-group"></g>
+        </svg>
+      </div>
+    </section>
+
+    <!-- RIGHT: Path Inspector -->
+    <aside id="inspector-panel">
+      <div class="panel-header">
+        <span>Inspector</span>
+      </div>
+
+      <div id="inspector-no-selection">
+        <p class="hint">Select a path to inspect</p>
+      </div>
+
+      <div id="inspector-content" hidden>
+        <div class="inspector-section">
+          <div class="inspector-row">
+            <span class="label">Path:</span>
+            <span id="inspector-path-id" class="value mono"></span>
+          </div>
+          <div class="inspector-row">
+            <span class="label">Points:</span>
+            <span id="inspector-point-count" class="value"></span>
+          </div>
+        </div>
+
+        <div class="inspector-section">
+          <div class="section-label">Operations</div>
+          <div class="op-grid">
+            <button class="btn btn-sm" id="btn-resample">Resample</button>
+            <input type="number" id="resample-count" value="32" min="3" max="512" class="num-input-sm">
+            <button class="btn btn-sm" id="btn-split-point">Split Pt</button>
+            <button class="btn btn-sm" id="btn-mirror-x">Mirror X</button>
+            <button class="btn btn-sm" id="btn-mirror-y">Mirror Y</button>
+            <button class="btn btn-sm" id="btn-mirror-linked">Link Mirror</button>
+          </div>
+        </div>
+
+        <div class="inspector-section">
+          <div class="section-label">Points</div>
+          <div id="point-table-wrap">
+            <table id="point-table">
+              <thead>
+                <tr><th>#</th><th>X</th><th>Y</th><th>Type</th></tr>
+              </thead>
+              <tbody id="point-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="inspector-section" id="selected-point-detail" hidden>
+          <div class="section-label">Selected Point</div>
+          <div class="inspector-row">
+            <span class="label">X</span>
+            <input type="number" id="pt-x-input" class="num-input-sm" step="0.1">
+          </div>
+          <div class="inspector-row">
+            <span class="label">Y</span>
+            <input type="number" id="pt-y-input" class="num-input-sm" step="0.1">
+          </div>
+          <div class="inspector-row">
+            <span class="label">Type</span>
+            <select id="pt-type-select">
+              <option value="smooth">Smooth</option>
+              <option value="symmetric">Symmetric</option>
+              <option value="cusp">Cusp</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- BOTTOM: Binding Panel -->
+  <footer id="binding-panel">
+    <div class="panel-header">
+      <span>Bindings</span>
+      <span class="hint" id="binding-hint">Select a path and add oscillators to create bindings</span>
+    </div>
+    <div id="binding-list"></div>
+  </footer>
+
+  <script type="module" src="main.js"></script>
 </body>
 </html>
