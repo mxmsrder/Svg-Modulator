@@ -45,10 +45,11 @@ export class DragController {
     const model = this.paths.get(pathId);
     if (!model) return;
 
-    // Select point
+    // Select point — fire immediately so inspector shows coords
     if (role === 'anchor') {
       this.selection.pathId = pathId;
       this.selection.pointIds = new Set([model.points[ptIdx]?.id]);
+      this.onModified(pathId); // update inspector immediately on click
     }
 
     const svgCoord = this.viewport.screenToSVG(e.clientX, e.clientY);

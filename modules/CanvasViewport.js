@@ -1,6 +1,5 @@
-// CanvasViewport.js — Pan/zoom via SVG viewBox + path rendering + optional grid
-// Using viewBox (not group transform) guarantees the browser repaints paths
-// every frame when their 'd' attribute changes.
+// CanvasViewport.js — Pan/zoom via SVG viewBox + path rendering
+// viewBox (not group transform) guarantees repaints each frame.
 
 const NS = 'http://www.w3.org/2000/svg';
 
@@ -13,12 +12,6 @@ export class CanvasViewport {
     this.panY  = 0;
     this.zoom  = 1;
     this.svgVB = { x: 0, y: 0, w: 500, h: 500 };
-
-    // Grid
-    this.showGrid = false;
-    this.gridSize = 10;          // SVG coordinate units
-    this._gridGroup = null;
-    this._initGridGroup();
 
     this._pathEls = new Map();
     this._hitEls  = new Map();
@@ -33,62 +26,6 @@ export class CanvasViewport {
     requestAnimationFrame(() => this._updateViewBox());
   }
 
-  // ── Grid ─────────────────────────────────────────────
-
-  _initGridGroup() {
-    // Grid group goes as first child of SVG so it renders behind everything
-    this._gridGroup = document.createElementNS(NS, 'g');
-    this._gridGroup.id = 'grid-group';
-    this._gridGroup.setAttribute('pointer-events', 'none');
-    this.svg.insertBefore(this._gridGroup, this.svg.firstChild);
-  }
-
-  _renderGrid() {
-    const g = this._gridGroup;
-    g.innerHTML = '';
-    if (!this.showGrid) return;
-
-    const rect = this.svg.getBoundingClientRect();
-    const W    = rect.width  || (window.innerWidth  - 440);
-    const H    = rect.height || (window.innerHeight - 200);
-
-    const vbX = -this.panX / this.zoom;
-    const vbY = -this.panY / this.zoom;
-    const vbW =  W / this.zoom;
-    const vbH =  H / this.zoom;
-
-    const size = this.gridSize;
-    const sw   = 1 / this.zoom;
-
-    // Subdivide: show minor grid at gridSize, major at 10x
-    const startX = Math.floor(vbX / size) * size;
-    const startY = Math.floor(vbY / size) * size;
-
-    const minor = `stroke:rgba(255,255,255,0.05);stroke-width:${sw};`;
-    const major = `stroke:rgba(255,255,255,0.12);stroke-width:${sw * 1.5};`;
-
-    let lineCount = 0;
-    for (let x = startX; x <= vbX + vbW + size && lineCount < 400; x += size, lineCount++) {
-      const isMajor = Math.abs(x % (size * 10)) < size * 0.01;
-      const l = document.createElementNS(NS, 'line');
-      l.setAttribute('x1', x);   l.setAttribute('y1', vbY);
-      l.setAttribute('x2', x);   l.setAttribute('y2', vbY + vbH);
-      l.setAttribute('style', isMajor ? major : minor);
-      g.appendChild(l);
-    }
-    lineCount = 0;
-    for (let y = startY; y <= vbY + vbH + size && lineCount < 400; y += size, lineCount++) {
-      const isMajor = Math.abs(y % (size * 10)) < size * 0.01;
-      const l = document.createElementNS(NS, 'line');
-      l.setAttribute('x1', vbX);       l.setAttribute('y1', y);
-      l.setAttribute('x2', vbX + vbW); l.setAttribute('y2', y);
-      l.setAttribute('style', isMajor ? major : minor);
-      g.appendChild(l);
-    }
-  }
-
-  // ── Viewport helpers ─────────────────────────────────
-
   setViewBox(vb) {
     this.svgVB = { ...vb };
     this.fitToView();
@@ -96,17 +33,14 @@ export class CanvasViewport {
 
   fitToView() {
     const rect = this.svg.getBoundingClientRect();
-    const W = rect.width  || (window.innerWidth  - 440);
-    const H = rect.height || (window.innerHeight - 200);
+    const W = rect.width  || (window.innerWidth  - 460);
+    const H = rect.height || (window.innerHeight - 100);
     const vb = this.svgVB;
-
     const scaleX = W / (vb.w || 1);
     const scaleY = H / (vb.h || 1);
     this.zoom = Math.min(scaleX, scaleY) * 0.9;
-
     this.panX = (W - vb.w * this.zoom) / 2 - vb.x * this.zoom;
     this.panY = (H - vb.h * this.zoom) / 2 - vb.y * this.zoom;
-
     this._updateViewBox();
   }
 
@@ -120,17 +54,14 @@ export class CanvasViewport {
 
   _updateViewBox() {
     const rect = this.svg.getBoundingClientRect();
-    const W = rect.width  || (window.innerWidth  - 440);
-    const H = rect.height || (window.innerHeight - 200);
-
+    const W = rect.width  || (window.innerWidth  - 460);
+    const H = rect.height || (window.innerHeight - 100);
     const vbX = -this.panX / this.zoom;
     const vbY = -this.panY / this.zoom;
     const vbW =  W / this.zoom;
     const vbH =  H / this.zoom;
-
     this.svg.setAttribute('viewBox', `${vbX} ${vbY} ${vbW} ${vbH}`);
     this._vbW = vbW; this._vbH = vbH;
-    this._renderGrid();
     this._emitZoom();
   }
 
@@ -140,8 +71,6 @@ export class CanvasViewport {
     const el = document.getElementById('zoom-display');
     if (el) el.textContent = Math.round(this.zoom * 100) + '%';
   }
-
-  // ── Pan & Zoom ───────────────────────────────────────
 
   _setupPanZoom() {
     const svg = this.svg;
@@ -156,32 +85,27 @@ export class CanvasViewport {
       svg.setPointerCapture(e.pointerId);
       svg.style.cursor = 'grabbing';
     });
-
     svg.addEventListener('pointermove', (e) => {
       if (!isPanning) return;
       this.panX = startPanX + (e.clientX - startX);
       this.panY = startPanY + (e.clientY - startY);
       this._updateViewBox();
     });
-
     svg.addEventListener('pointerup',    () => { isPanning = false; svg.style.cursor = ''; });
     svg.addEventListener('pointercancel', () => { isPanning = false; svg.style.cursor = ''; });
 
     svg.addEventListener('wheel', (e) => {
       e.preventDefault();
-      const rect   = svg.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
+      const rect = svg.getBoundingClientRect();
+      const mx = e.clientX - rect.left, my = e.clientY - rect.top;
       const factor  = e.deltaY < 0 ? 1.1 : 1 / 1.1;
       const newZoom = Math.max(0.02, Math.min(100, this.zoom * factor));
-      this.panX = mouseX - (mouseX - this.panX) * (newZoom / this.zoom);
-      this.panY = mouseY - (mouseY - this.panY) * (newZoom / this.zoom);
+      this.panX = mx - (mx - this.panX) * (newZoom / this.zoom);
+      this.panY = my - (my - this.panY) * (newZoom / this.zoom);
       this.zoom = newZoom;
       this._updateViewBox();
     }, { passive: false });
   }
-
-  // ── Path rendering ───────────────────────────────────
 
   render(paths, showWireframe) {
     const active = new Set();
@@ -190,11 +114,9 @@ export class CanvasViewport {
     for (const [id, model] of paths) {
       active.add(id);
 
-      // Visual path
       let el = this._pathEls.get(id);
       if (!el) {
         el = document.createElementNS(NS, 'path');
-        el.style.cursor = 'pointer';
         el.setAttribute('pointer-events', 'none');
         this.group.appendChild(el);
         this._pathEls.set(id, el);
@@ -206,8 +128,7 @@ export class CanvasViewport {
         el.setAttribute('visibility', 'visible');
         el.setAttribute('d', model.toPathString());
         const t = model.toTransformString();
-        if (t) el.setAttribute('transform', t);
-        else   el.removeAttribute('transform');
+        if (t) el.setAttribute('transform', t); else el.removeAttribute('transform');
 
         if (showWireframe) {
           el.setAttribute('fill', 'none');
@@ -215,20 +136,18 @@ export class CanvasViewport {
           el.setAttribute('stroke-width', (model.strokeWidth * invZ).toFixed(4));
           el.setAttribute('fill-opacity', '0');
         } else {
-          el.setAttribute('fill',         model.fill === 'none' ? 'none' : model.fill);
+          el.setAttribute('fill',         model.fill);
           el.setAttribute('fill-opacity', model.fillOpacity);
           el.setAttribute('stroke',       model.stroke);
           el.setAttribute('stroke-width', model.strokeWidth);
         }
         if (model.selected) {
-          el.setAttribute('stroke', model.stroke || '#fff');
           el.setAttribute('stroke-opacity', '1');
         } else {
           el.removeAttribute('stroke-opacity');
         }
       }
 
-      // Wide transparent hit target
       let hit = this._hitEls.get(id);
       if (!hit) {
         hit = document.createElementNS(NS, 'path');
@@ -249,12 +168,10 @@ export class CanvasViewport {
         hit.setAttribute('d', model.toPathString());
         hit.setAttribute('stroke-width', Math.max(10 * invZ, 2));
         const t = model.toTransformString();
-        if (t) hit.setAttribute('transform', t);
-        else   hit.removeAttribute('transform');
+        if (t) hit.setAttribute('transform', t); else hit.removeAttribute('transform');
       }
     }
 
-    // Cleanup stale
     for (const [id, el] of this._pathEls) {
       if (!active.has(id)) { el.remove(); this._pathEls.delete(id); }
     }

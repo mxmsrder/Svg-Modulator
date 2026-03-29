@@ -403,5 +403,44 @@ export class OscillatorPanel {
       if (!body.isConnected) { clearInterval(checkError); return; }
       errorDiv.textContent = osc._exprError || '';
     }, 500);
+
+    // Examples
+    const examples = [
+      { label: 'Sine wave ×50',       expr: 'Math.sin(t * 2 * Math.PI) * 50' },
+      { label: 'Slow wobble',          expr: 'Math.sin(t * 0.5) * 80' },
+      { label: 'Pulsating (sin²)',     expr: 'Math.pow(Math.sin(t * Math.PI), 2) * 100' },
+      { label: 'Bounce (abs sin)',     expr: 'Math.abs(Math.sin(t * 2 * Math.PI)) * 60 - 30' },
+      { label: 'Double freq beat',     expr: 'Math.sin(t * 2 * Math.PI) * Math.sin(t * 4 * Math.PI) * 60' },
+      { label: 'Tremolo (AM)',         expr: '(1 + Math.sin(t * 6 * Math.PI)) * 0.5 * Math.sin(t * 2 * Math.PI) * 50' },
+      { label: 'BPM-synced',          expr: '(bpm / 60 > 0 ? Math.sin(t * bpm / 60 * 2 * Math.PI) : 0) * 50' },
+      { label: 'Sawtooth ×40',        expr: '(((t * 0.5) % 1) * 2 - 1) * 40' },
+      { label: 'Random spike',        expr: '(Math.sin(t * 7.3) > 0.9 ? 80 : 0)' },
+      { label: 'Slow drift + fast',   expr: 'Math.sin(t * 0.3) * 40 + Math.sin(t * 3) * 10' },
+    ];
+
+    const details = document.createElement('details');
+    details.className = 'expr-examples';
+    const summary = document.createElement('summary');
+    summary.textContent = 'Examples';
+    details.appendChild(summary);
+
+    const list = document.createElement('div');
+    list.className = 'expr-ex-list';
+    for (const ex of examples) {
+      const btn = document.createElement('button');
+      btn.className = 'expr-ex-btn';
+      btn.title     = ex.expr;
+      btn.textContent = ex.label;
+      btn.addEventListener('click', () => {
+        textarea.value  = ex.expr;
+        osc.expression  = ex.expr;
+        osc.invalidateExpr();
+        errorDiv.textContent = '';
+        this.onChange();
+      });
+      list.appendChild(btn);
+    }
+    details.appendChild(list);
+    body.appendChild(details);
   }
 }

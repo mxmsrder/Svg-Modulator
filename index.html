@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SVG Oscillator Editor</title>
   <link rel="stylesheet" href="styles.css">
+  <!-- JSZip for PNG sequence export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
@@ -12,75 +14,63 @@
   <header id="toolbar">
     <div class="toolbar-group">
       <label class="btn" title="Import SVG file">
-        Import SVG
+        IMPORT
         <input type="file" id="file-input" accept=".svg" hidden>
       </label>
       <div class="dropdown">
-        <button class="btn" id="export-btn">Export ▾</button>
+        <button class="btn" id="export-btn">EXPORT ▾</button>
         <div class="dropdown-menu" id="export-menu">
           <button data-action="export-svg">Static SVG</button>
           <button data-action="export-smil">Animated SVG (SMIL)</button>
           <button data-action="export-state">Save State (JSON)</button>
+          <button data-action="export-anim">PNG Sequence / MP4…</button>
         </div>
       </div>
+      <button class="btn btn-sm" id="btn-save-local" title="Save to browser storage">SAVE</button>
+      <button class="btn btn-sm" id="btn-load-local" title="Load from browser storage">LOAD</button>
     </div>
 
     <div class="toolbar-group toolbar-center">
-      <button class="btn toggle-btn active" id="toggle-anchors" title="Show anchor points">
-        ● Points
-      </button>
-      <button class="btn toggle-btn active" id="toggle-handles" title="Show bezier handles">
-        ◇ Handles
-      </button>
-      <button class="btn toggle-btn" id="toggle-wireframe" title="Show wireframe only">
-        ⬜ Wire
-      </button>
+      <button class="btn toggle-btn active" id="toggle-anchors">● PTS</button>
+      <button class="btn toggle-btn active" id="toggle-handles">◇ HDL</button>
+      <button class="btn toggle-btn" id="toggle-wireframe">⬜ WIRE</button>
       <div class="toolbar-sep"></div>
-      <button class="btn toggle-btn" id="toggle-grid" title="Show grid">
-        ⊞ Grid
-      </button>
-      <input type="number" id="grid-size" value="10" min="1" max="200" step="1"
-             class="num-input" style="width:44px" title="Grid size (SVG units)">
-      <button class="btn toggle-btn" id="toggle-snap" title="Snap to grid">
-        ⌖ Snap
-      </button>
-    </div>
-
-    <div class="toolbar-group">
-      <button class="btn btn-sm" id="btn-undo" title="Undo (⌘Z)" disabled>↩</button>
-      <button class="btn btn-sm" id="btn-redo" title="Redo (⌘⇧Z)" disabled>↪</button>
+      <button class="btn btn-sm" id="btn-undo" disabled>↩</button>
+      <button class="btn btn-sm" id="btn-redo" disabled>↪</button>
     </div>
 
     <div class="toolbar-group toolbar-right">
-      <label class="toolbar-label">BPM</label>
+      <span class="toolbar-label">BPM</span>
       <input type="number" id="bpm-input" value="120" min="10" max="400" step="1" class="num-input">
-      <button class="btn" id="btn-zoom-out" title="Zoom out">−</button>
+      <button class="btn btn-sm" id="btn-zoom-out">−</button>
       <span id="zoom-display">100%</span>
-      <button class="btn" id="btn-zoom-in" title="Zoom in">+</button>
-      <button class="btn" id="btn-zoom-fit" title="Fit to view">Fit</button>
+      <button class="btn btn-sm" id="btn-zoom-in">+</button>
+      <button class="btn btn-sm" id="btn-zoom-fit">FIT</button>
       <div class="toolbar-sep"></div>
-      <button class="btn btn-play" id="btn-play" title="Play animation">▶ Play</button>
-      <button class="btn" id="btn-stop" title="Stop animation">■ Stop</button>
+      <button class="btn btn-play" id="btn-play">▶ PLAY</button>
+      <button class="btn btn-sm" id="btn-stop">■ STOP</button>
     </div>
   </header>
 
   <!-- MAIN AREA -->
   <main id="main-layout">
 
-    <!-- LEFT: Oscillators / Modulators -->
+    <!-- LEFT PANEL: Modulators -->
     <aside id="osc-panel">
       <div class="panel-header">
-        <span>Modulators</span>
-        <button class="btn btn-sm" id="add-osc-btn">+ Add</button>
+        <span>MODULATORS</span>
+        <button class="btn btn-sm" id="add-osc-btn">+ ADD</button>
       </div>
       <div id="osc-list"></div>
     </aside>
+
+    <div class="panel-resizer" id="left-resizer"></div>
 
     <!-- CENTER: SVG Canvas -->
     <section id="canvas-area">
       <div id="canvas-drop-zone">
         <div id="drop-hint">
-          <p>Drop an SVG file here</p>
+          <p>DROP SVG HERE</p>
           <p class="sub">or click to browse</p>
         </div>
         <svg id="editor-svg" xmlns="http://www.w3.org/2000/svg">
@@ -91,26 +81,91 @@
       </div>
     </section>
 
-    <!-- RIGHT: Inspector + Binding Matrix -->
+    <div class="panel-resizer" id="right-resizer"></div>
+
+    <!-- RIGHT PANEL: Inspector -->
     <aside id="inspector-panel">
       <div class="panel-header">
-        <span>Inspector</span>
+        <span>INSPECTOR</span>
       </div>
 
       <div id="inspector-no-selection">
-        <p class="hint">Select a path to inspect</p>
+        <p class="hint">SELECT A PATH</p>
       </div>
 
       <div id="inspector-content" hidden>
-        <!-- Path info -->
+
+        <!-- Path info + delete -->
         <div class="inspector-section">
           <div class="inspector-row">
-            <span class="label">Path:</span>
+            <span class="label">ID</span>
             <span id="inspector-path-id" class="value mono"></span>
           </div>
           <div class="inspector-row">
-            <span class="label">Points:</span>
+            <span class="label">PTS</span>
             <span id="inspector-point-count" class="value"></span>
+            <button class="btn btn-sm btn-danger" id="btn-delete-shape" style="margin-left:auto">DEL SHAPE</button>
+          </div>
+        </div>
+
+        <!-- Appearance controls -->
+        <div class="inspector-section" id="appearance-section">
+          <div class="section-label">Appearance</div>
+          <div class="app-mode-row">
+            <button class="btn btn-sm" id="btn-mode-fill" title="Fill only">FILL</button>
+            <button class="btn btn-sm" id="btn-mode-stroke" title="Stroke only">STROKE</button>
+            <button class="btn btn-sm" id="btn-mode-both" title="Fill + Stroke">BOTH</button>
+          </div>
+          <div class="app-color-row" id="fill-row">
+            <span class="app-color-label">FILL</span>
+            <input type="color" id="fill-color-input" value="#6c63ff">
+            <div style="flex:1" id="fill-opacity-wrap"></div>
+          </div>
+          <div class="app-color-row" id="stroke-row">
+            <span class="app-color-label">STROKE</span>
+            <input type="color" id="stroke-color-input" value="#ffffff">
+            <div style="flex:1" id="stroke-width-wrap"></div>
+          </div>
+        </div>
+
+        <!-- Selected point detail -->
+        <div id="inspector-point-detail" hidden>
+          <div class="pt-detail-header">SELECTED POINT <span id="pt-detail-idx"></span></div>
+          <div class="pt-coord-row">
+            <span class="pt-coord-label">X</span>
+            <input type="number" class="pt-coord-input" id="pt-x" step="0.01">
+          </div>
+          <div class="pt-coord-row">
+            <span class="pt-coord-label">Y</span>
+            <input type="number" class="pt-coord-input" id="pt-y" step="0.01">
+          </div>
+          <div id="pt-handle-in-rows">
+            <div class="pt-coord-row">
+              <span class="pt-coord-label">IN X</span>
+              <input type="number" class="pt-coord-input" id="pt-hi-x" step="0.01">
+            </div>
+            <div class="pt-coord-row">
+              <span class="pt-coord-label">IN Y</span>
+              <input type="number" class="pt-coord-input" id="pt-hi-y" step="0.01">
+            </div>
+          </div>
+          <div id="pt-handle-out-rows">
+            <div class="pt-coord-row">
+              <span class="pt-coord-label">OUT X</span>
+              <input type="number" class="pt-coord-input" id="pt-ho-x" step="0.01">
+            </div>
+            <div class="pt-coord-row">
+              <span class="pt-coord-label">OUT Y</span>
+              <input type="number" class="pt-coord-input" id="pt-ho-y" step="0.01">
+            </div>
+          </div>
+          <div class="pt-type-row">
+            <span class="pt-coord-label">TYPE</span>
+            <select id="pt-type">
+              <option value="smooth">smooth</option>
+              <option value="symmetric">symmetric</option>
+              <option value="cusp">cusp</option>
+            </select>
           </div>
         </div>
 
@@ -128,15 +183,51 @@
           </div>
         </div>
 
-        <!-- Binding Matrix (vertical: params=rows, oscs=cols) -->
+        <!-- Binding Matrix -->
         <div class="inspector-section" id="inspector-binding-section">
           <div class="section-label">Bindings</div>
           <div id="inspector-binding-wrap"></div>
         </div>
-      </div>
+
+      </div><!-- /inspector-content -->
     </aside>
 
   </main>
+
+  <!-- EXPORT ANIMATION DIALOG -->
+  <div id="export-anim-dialog" class="hidden">
+    <div class="dialog-box">
+      <h3>Export Animation</h3>
+      <div class="dialog-row">
+        <label>Format</label>
+        <select id="exp-format">
+          <option value="png-seq">PNG Sequence (ZIP)</option>
+          <option value="webm">WebM Video</option>
+        </select>
+      </div>
+      <div class="dialog-row">
+        <label>FPS</label>
+        <input type="number" id="exp-fps" value="30" min="1" max="120" class="num-input">
+      </div>
+      <div class="dialog-row">
+        <label>Duration (s)</label>
+        <input type="number" id="exp-duration" value="3" min="0.5" max="60" step="0.5" class="num-input">
+      </div>
+      <div class="dialog-row">
+        <label>Width</label>
+        <input type="number" id="exp-width" value="1920" min="100" max="4096" step="2" class="num-input">
+      </div>
+      <div class="dialog-row">
+        <label>Height</label>
+        <input type="number" id="exp-height" value="1080" min="100" max="4096" step="2" class="num-input">
+      </div>
+      <div id="exp-progress"></div>
+      <div class="dialog-actions">
+        <button class="btn" id="exp-cancel-btn">Cancel</button>
+        <button class="btn active" id="exp-start-btn">Export</button>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="main.js"></script>
 </body>

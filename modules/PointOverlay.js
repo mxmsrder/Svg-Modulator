@@ -1,18 +1,17 @@
 // PointOverlay.js — Renders anchor points and bezier handles
-// Visual elements: small outlined circles (anchors) and diamonds (handles)
-// Hit targets: large invisible circles/diamonds for easy grabbing
-// Highlight support: highlighted points/handles get white fill
+// Selected anchors: filled white. Highlighted (matrix hover): filled white.
+// Large invisible hit areas for easy grabbing.
 
 const NS   = 'http://www.w3.org/2000/svg';
-const COL  = 'rgba(255,255,255,0.6)';
-const SEL  = '#6c63ff';
-const HL   = '#ffffff';   // highlight fill (from matrix click)
-const SW   = 1.5;
+const COL  = 'rgba(255,255,255,0.55)';
+const SEL_FILL = '#ffffff';
+const HL_FILL  = '#ffffff';
+const SW   = 1.2;
 
-const A_R  = 4.5;   // anchor visual radius (screen px)
-const H_S  = 3.5;   // handle diamond visual half-size (screen px)
-const HIT_R = 14;   // anchor hit radius (screen px) — bigger than visual
-const HIT_H = 12;   // handle hit half-size (screen px)
+const A_R  = 4;    // visual anchor radius (screen px)
+const H_S  = 3.2;  // visual handle half-size (screen px)
+const HIT_R = 14;  // anchor hit radius (screen px)
+const HIT_H = 12;  // handle hit half-size (screen px)
 
 export class PointOverlay {
   constructor(overlayGroup, interactionGroup) {
@@ -20,22 +19,18 @@ export class PointOverlay {
     this.interaction = interactionGroup;
     this.showAnchors = true;
     this.showHandles = true;
-    // highlightTarget: { pathId, pointIndex, handleRole, property } or null
     this.highlightTarget = null;
-    this._els = new Map(); // key → SVG element
+    this._els = new Map();
   }
 
   render(paths, selection, zoom) {
-    if (!this.showAnchors && !this.showHandles) {
-      this._clearAll();
-      return;
-    }
+    if (!this.showAnchors && !this.showHandles) { this._clearAll(); return; }
 
     const used = new Set();
     const iz   = 1 / zoom;
-    const ar   = A_R  * iz;
-    const hs   = H_S  * iz;
-    const sw   = SW   * iz;
+    const ar   = A_R   * iz;
+    const hs   = H_S   * iz;
+    const sw   = SW    * iz;
     const hr   = HIT_R * iz;
     const hh   = HIT_H * iz;
 
@@ -43,36 +38,30 @@ export class PointOverlay {
       if (!model.visible || !model.selected) continue;
 
       model.points.forEach((pt, ptIdx) => {
-        const isHlAnchor = this._isHighlighted(pathId, ptIdx, null);
-        const isHlIn     = this._isHighlighted(pathId, ptIdx, 'in');
-        const isHlOut    = this._isHighlighted(pathId, ptIdx, 'out');
+        const isSelAnchor = selection.pointIds.has(pt.id);
+        const isHlAnchor  = this._isHighlighted(pathId, ptIdx, null);
+        const isHlIn      = this._isHighlighted(pathId, ptIdx, 'in');
+        const isHlOut     = this._isHighlighted(pathId, ptIdx, 'out');
 
         if (this.showHandles) {
           if (pt.handleIn)  this._renderHandle(pathId, ptIdx, 'in',  pt.handleIn,  pt, hs, sw, hh, isHlIn,  used);
           if (pt.handleOut) this._renderHandle(pathId, ptIdx, 'out', pt.handleOut, pt, hs, sw, hh, isHlOut, used);
         }
         if (this.showAnchors) {
-          this._renderAnchor(pathId, ptIdx, pt, ar, sw, hr, selection, isHlAnchor, used);
+          this._renderAnchor(pathId, ptIdx, pt, ar, sw, hr, isSelAnchor, isHlAnchor, used);
         }
       });
     }
 
-    // Remove unused
     for (const [key, el] of this._els) {
       if (!used.has(key)) { el.remove(); this._els.delete(key); }
     }
   }
 
-  // ── Private ───────────────────────────────────────
-
   _isHighlighted(pathId, ptIdx, handleRole) {
     const ht = this.highlightTarget;
-    if (!ht) return false;
-    if (ht.pathId !== pathId) return false;
-    if (ht.pointIndex !== ptIdx) return false;
-    if (handleRole === null) {
-      return ht.handleRole === null || ht.handleRole === undefined;
-    }
+    if (!ht || ht.pathId !== pathId || ht.pointIndex !== ptIdx) return false;
+    if (handleRole === null) return !ht.handleRole;
     return ht.handleRole === handleRole;
   }
 
@@ -85,48 +74,31 @@ export class PointOverlay {
       line = makeEl('line', { class: 'handle-line', 'pointer-events': 'none' }, this.overlay);
       this._els.set(lineKey, line);
     }
-    setAttr(line, {
-      x1: anchor.x, y1: anchor.y,
-      x2: handle.x, y2: handle.y,
-      'stroke-width': sw * 0.8,
-    });
+    setAttr(line, { x1: anchor.x, y1: anchor.y, x2: handle.x, y2: handle.y, 'stroke-width': sw * 0.7 });
 
-    // Visual diamond (overlay, no pointer events)
+    // Visual diamond
     const dotKey = `${pathId}:${ptIdx}:hdot-${role}`;
     used.add(dotKey);
     let diamond = this._els.get(dotKey);
     if (!diamond) {
-      diamond = makeEl('path', {
-        class: 'handle-pt',
-        'pointer-events': 'none',
-      }, this.overlay);
+      diamond = makeEl('path', { class: 'handle-pt', 'pointer-events': 'none' }, this.overlay);
       this._els.set(dotKey, diamond);
     }
     const { x, y } = handle;
     diamond.setAttribute('d', `M ${x},${y-hs} L ${x+hs},${y} L ${x},${y+hs} L ${x-hs},${y} Z`);
     diamond.setAttribute('stroke-width', sw);
-    if (highlight) {
-      diamond.setAttribute('fill', HL);
-      diamond.setAttribute('stroke', HL);
-    } else {
-      diamond.setAttribute('fill', 'none');
-      diamond.setAttribute('stroke', COL);
-    }
+    diamond.setAttribute('fill',   highlight ? HL_FILL : 'none');
+    diamond.setAttribute('stroke', highlight ? HL_FILL : COL);
 
-    // Large invisible hit diamond (interaction group)
+    // Large invisible hit diamond
     const hitKey = `${pathId}:${ptIdx}:hhit-${role}`;
     used.add(hitKey);
     let hitDiamond = this._els.get(hitKey);
     if (!hitDiamond) {
       hitDiamond = makeEl('path', {
-        class:              'handle-hit',
-        fill:               'transparent',
-        stroke:             'transparent',
-        'pointer-events':   'all',
-        'data-role':        'handle',
-        'data-path-id':     pathId,
-        'data-pt-idx':      ptIdx,
-        'data-handle-role': role,
+        fill: 'transparent', stroke: 'transparent', 'pointer-events': 'all',
+        'data-role': 'handle', 'data-path-id': pathId,
+        'data-pt-idx': ptIdx, 'data-handle-role': role,
       }, this.interaction);
       this._els.set(hitKey, hitDiamond);
     }
@@ -134,60 +106,51 @@ export class PointOverlay {
     hitDiamond.setAttribute('stroke-width', sw * 2);
   }
 
-  _renderAnchor(pathId, ptIdx, pt, ar, sw, hr, selection, highlight, used) {
-    // Visual circle (overlay, no pointer events)
+  _renderAnchor(pathId, ptIdx, pt, ar, sw, hr, isSelected, isHighlighted, used) {
+    // Visual circle
     const visKey = `${pathId}:${ptIdx}:avis`;
     used.add(visKey);
-    let visCircle = this._els.get(visKey);
-    if (!visCircle) {
-      visCircle = makeEl('circle', {
-        class: 'anchor-pt',
-        'pointer-events': 'none',
-      }, this.overlay);
-      this._els.set(visKey, visCircle);
+    let vis = this._els.get(visKey);
+    if (!vis) {
+      vis = makeEl('circle', { class: 'anchor-pt', 'pointer-events': 'none' }, this.overlay);
+      this._els.set(visKey, vis);
     }
-    const isSelected = selection.pointIds.has(pt.id);
-    setAttr(visCircle, {
+    const filled = isSelected || isHighlighted;
+    setAttr(vis, {
       cx: pt.x, cy: pt.y,
-      r:  isSelected ? ar * 1.3 : ar,
-      'stroke':       highlight ? HL : (isSelected ? SEL : COL),
+      r:  isSelected ? ar * 1.4 : ar,
+      stroke: COL,
       'stroke-width': sw,
-      'fill':         highlight ? HL : 'none',
+      fill: filled ? SEL_FILL : 'none',
     });
 
-    // Large invisible hit circle (interaction group)
+    // Large invisible hit circle
     const hitKey = `${pathId}:${ptIdx}:ahit`;
     used.add(hitKey);
-    let hitCircle = this._els.get(hitKey);
-    if (!hitCircle) {
-      hitCircle = makeEl('circle', {
-        fill:             'transparent',
-        stroke:           'transparent',
-        'pointer-events': 'all',
-        'data-role':      'anchor',
-        'data-path-id':   pathId,
-        'data-pt-idx':    ptIdx,
+    let hit = this._els.get(hitKey);
+    if (!hit) {
+      hit = makeEl('circle', {
+        fill: 'transparent', stroke: 'transparent', 'pointer-events': 'all',
+        'data-role': 'anchor', 'data-path-id': pathId, 'data-pt-idx': ptIdx,
       }, this.interaction);
-      this._els.set(hitKey, hitCircle);
+      this._els.set(hitKey, hit);
     }
-    setAttr(hitCircle, { cx: pt.x, cy: pt.y, r: hr });
+    setAttr(hit, { cx: pt.x, cy: pt.y, r: hr });
   }
 
   _clearAll() {
-    this.overlay.innerHTML     = '';
+    this.overlay.innerHTML = '';
     this.interaction.innerHTML = '';
     this._els.clear();
   }
 }
 
-// ── Helpers ───────────────────────────────────────────
 function makeEl(tag, attrs, parent) {
   const e = document.createElementNS(NS, tag);
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
   parent.appendChild(e);
   return e;
 }
-
 function setAttr(el, attrs) {
   for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
 }
