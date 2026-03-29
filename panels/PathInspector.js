@@ -1,4 +1,5 @@
-// PathInspector.js — Shows selected path info, operations, and point table
+// PathInspector.js — Path info, operations, and binding matrix
+// Point table removed; binding matrix shown inline in vertical orientation.
 
 import { resample, splitSegment, mirrorX, mirrorY, createLinkedMirrorClone } from '../modules/PathOperations.js';
 
@@ -11,7 +12,6 @@ export class PathInspector {
     this.pushHistory = pushHistory;
 
     this._bindOps();
-    this._bindPointEdit();
   }
 
   render() {
@@ -28,69 +28,8 @@ export class PathInspector {
     content.hidden = false;
     noSel.hidden   = true;
 
-    this.els.pathId.textContent      = model.id;
-    this.els.pointCount.textContent  = model.points.length;
-
-    this._renderTable(model);
-    this._renderSelectedPoint(model);
-  }
-
-  _renderTable(model) {
-    const tbody = this.els.tableBody;
-    tbody.innerHTML = '';
-    model.points.forEach((pt, i) => {
-      const tr = document.createElement('tr');
-      const isSelected = this.selection.pointIds.has(pt.id);
-      if (isSelected) tr.classList.add('selected');
-      tr.innerHTML = `<td>${i}</td><td>${pt.x.toFixed(1)}</td><td>${pt.y.toFixed(1)}</td><td>${pt.type}</td>`;
-      tr.addEventListener('click', () => {
-        this.selection.pointIds = new Set([pt.id]);
-        this.render();
-      });
-      tbody.appendChild(tr);
-    });
-  }
-
-  _renderSelectedPoint(model) {
-    const detail = this.els.ptDetail;
-    const ptId   = [...this.selection.pointIds][0];
-    const pt     = model.points.find(p => p.id === ptId);
-    if (!pt) { detail.hidden = true; return; }
-    detail.hidden = false;
-    this.els.ptX.value  = pt.baseX.toFixed(2);
-    this.els.ptY.value  = pt.baseY.toFixed(2);
-    this.els.ptType.value = pt.type;
-  }
-
-  _bindPointEdit() {
-    const applyCoord = () => {
-      const pathId = this.selection.pathId;
-      const model  = pathId ? this.paths.get(pathId) : null;
-      if (!model) return;
-      const ptId = [...this.selection.pointIds][0];
-      const pt   = model.points.find(p => p.id === ptId);
-      if (!pt) return;
-      const x = parseFloat(this.els.ptX.value);
-      const y = parseFloat(this.els.ptY.value);
-      if (!isNaN(x)) { pt.baseX = x; pt.x = x; }
-      if (!isNaN(y)) { pt.baseY = y; pt.y = y; }
-      this.onModified(pathId);
-    };
-
-    this.els.ptX.addEventListener('change', applyCoord);
-    this.els.ptY.addEventListener('change', applyCoord);
-
-    this.els.ptType.addEventListener('change', () => {
-      const pathId = this.selection.pathId;
-      const model  = pathId ? this.paths.get(pathId) : null;
-      if (!model) return;
-      const ptId = [...this.selection.pointIds][0];
-      const pt   = model.points.find(p => p.id === ptId);
-      if (pt) {
-        pt.type = this.els.ptType.value;
-        this.onModified(pathId);
-      }
-    });
+    this.els.pathId.textContent     = model.id;
+    this.els.pointCount.textContent = model.points.length;
   }
 
   _bindOps() {
@@ -114,9 +53,23 @@ export class PathInspector {
       const ptId  = [...this.selection.pointIds][0];
       const ptIdx = model.points.findIndex(p => p.id === ptId);
       if (ptIdx < 0) return;
-      // Split the segment starting at this point
       const segIdx = ptIdx === model.points.length - 1 ? ptIdx - 1 : ptIdx;
       splitSegment(model, segIdx, 0.5);
+      this.onModified(pathId);
+      this.render();
+    });
+
+    document.getElementById('btn-remove-point')?.addEventListener('click', () => {
+      const pathId = this.selection.pathId;
+      const model  = this.paths.get(pathId);
+      if (!model) return;
+      const ptId  = [...this.selection.pointIds][0];
+      const ptIdx = model.points.findIndex(p => p.id === ptId);
+      if (ptIdx < 0) return;
+      if (model.points.length <= 2) return; // can't remove last 2
+      this.pushHistory?.();
+      model.points.splice(ptIdx, 1);
+      this.selection.pointIds = new Set();
       this.onModified(pathId);
       this.render();
     });
@@ -146,7 +99,6 @@ export class PathInspector {
       const model  = this.paths.get(pathId);
       if (!model) return;
       if (model.mirrorSlaveId) {
-        // Already linked — remove slave
         this.paths.delete(model.mirrorSlaveId);
         model.mirrorSlaveId = null;
         model.mirrorAxis    = null;

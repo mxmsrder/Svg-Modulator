@@ -35,6 +35,15 @@
       <button class="btn toggle-btn" id="toggle-wireframe" title="Show wireframe only">
         ⬜ Wire
       </button>
+      <div class="toolbar-sep"></div>
+      <button class="btn toggle-btn" id="toggle-grid" title="Show grid">
+        ⊞ Grid
+      </button>
+      <input type="number" id="grid-size" value="10" min="1" max="200" step="1"
+             class="num-input" style="width:44px" title="Grid size (SVG units)">
+      <button class="btn toggle-btn" id="toggle-snap" title="Snap to grid">
+        ⌖ Snap
+      </button>
     </div>
 
     <div class="toolbar-group">
@@ -58,10 +67,10 @@
   <!-- MAIN AREA -->
   <main id="main-layout">
 
-    <!-- LEFT: Oscillators -->
+    <!-- LEFT: Oscillators / Modulators -->
     <aside id="osc-panel">
       <div class="panel-header">
-        <span>Oscillators</span>
+        <span>Modulators</span>
         <button class="btn btn-sm" id="add-osc-btn">+ Add</button>
       </div>
       <div id="osc-list"></div>
@@ -74,18 +83,15 @@
           <p>Drop an SVG file here</p>
           <p class="sub">or click to browse</p>
         </div>
-        <!-- SVG viewport injected by CanvasViewport.js -->
         <svg id="editor-svg" xmlns="http://www.w3.org/2000/svg">
           <g id="svg-content-group"></g>
-          <!-- Overlay drawn on top, no pointer events -->
           <g id="overlay-group" style="pointer-events:none"></g>
-          <!-- Invisible hit targets for interaction -->
           <g id="interaction-group"></g>
         </svg>
       </div>
     </section>
 
-    <!-- RIGHT: Path Inspector -->
+    <!-- RIGHT: Inspector + Binding Matrix -->
     <aside id="inspector-panel">
       <div class="panel-header">
         <span>Inspector</span>
@@ -96,6 +102,7 @@
       </div>
 
       <div id="inspector-content" hidden>
+        <!-- Path info -->
         <div class="inspector-section">
           <div class="inspector-row">
             <span class="label">Path:</span>
@@ -107,62 +114,29 @@
           </div>
         </div>
 
+        <!-- Operations -->
         <div class="inspector-section">
           <div class="section-label">Operations</div>
           <div class="op-grid">
             <button class="btn btn-sm" id="btn-resample">Resample</button>
             <input type="number" id="resample-count" value="32" min="3" max="512" class="num-input-sm">
             <button class="btn btn-sm" id="btn-split-point">Split Pt</button>
+            <button class="btn btn-sm" id="btn-remove-point">Remove Pt</button>
             <button class="btn btn-sm" id="btn-mirror-x">Mirror X</button>
             <button class="btn btn-sm" id="btn-mirror-y">Mirror Y</button>
-            <button class="btn btn-sm" id="btn-mirror-linked">Link Mirror</button>
+            <button class="btn btn-sm" id="btn-mirror-linked" style="grid-column:span 2">Link Mirror</button>
           </div>
         </div>
 
-        <div class="inspector-section">
-          <div class="section-label">Points</div>
-          <div id="point-table-wrap">
-            <table id="point-table">
-              <thead>
-                <tr><th>#</th><th>X</th><th>Y</th><th>Type</th></tr>
-              </thead>
-              <tbody id="point-table-body"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="inspector-section" id="selected-point-detail" hidden>
-          <div class="section-label">Selected Point</div>
-          <div class="inspector-row">
-            <span class="label">X</span>
-            <input type="number" id="pt-x-input" class="num-input-sm" step="0.1">
-          </div>
-          <div class="inspector-row">
-            <span class="label">Y</span>
-            <input type="number" id="pt-y-input" class="num-input-sm" step="0.1">
-          </div>
-          <div class="inspector-row">
-            <span class="label">Type</span>
-            <select id="pt-type-select">
-              <option value="smooth">Smooth</option>
-              <option value="symmetric">Symmetric</option>
-              <option value="cusp">Cusp</option>
-            </select>
-          </div>
+        <!-- Binding Matrix (vertical: params=rows, oscs=cols) -->
+        <div class="inspector-section" id="inspector-binding-section">
+          <div class="section-label">Bindings</div>
+          <div id="inspector-binding-wrap"></div>
         </div>
       </div>
     </aside>
 
   </main>
-
-  <!-- BOTTOM: Binding Panel -->
-  <footer id="binding-panel">
-    <div class="panel-header">
-      <span>Bindings</span>
-      <span class="hint" id="binding-hint">Select a path and add oscillators to create bindings</span>
-    </div>
-    <div id="binding-list"></div>
-  </footer>
 
   <script type="module" src="main.js"></script>
 </body>

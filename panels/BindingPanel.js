@@ -1,20 +1,22 @@
-// BindingPanel.js — Ableton-style binding matrix
-// Rows = Oscillators, Columns = Parameters (for selected path)
-// Each cell: empty → click to bind; filled → inline scale slider + remove
+// BindingPanel.js — Vertical binding matrix for the inspector panel
+// Rows = Parameters (path-level + per-point coords)
+// Columns = Oscillators
+// Each cell: empty → click to bind; filled → scale box + remove
 
 import { PATH_PROPERTIES } from '../modules/BindingSystem.js';
+import { BoxSlider } from '../components/BoxSlider.js';
 
-// Max points to show as columns (can scroll for more)
-const MAX_PT_COLS = 20;
+const MAX_PT_ROWS = 24; // max point rows to show
 
 export class BindingPanel {
-  constructor(containerEl, bindingSystem, engine, paths, selection, onChange) {
-    this.container = containerEl;
-    this.bs        = bindingSystem;
-    this.engine    = engine;
-    this.paths     = paths;
-    this.selection = selection;
-    this.onChange  = onChange;
+  constructor(containerEl, bindingSystem, engine, paths, selection, onChange, onHighlight) {
+    this.container   = containerEl;
+    this.bs          = bindingSystem;
+    this.engine      = engine;
+    this.paths       = paths;
+    this.selection   = selection;
+    this.onChange    = onChange;
+    this.onHighlight = onHighlight || null; // fn(target | null) → highlight in viewer
   }
 
   render() {
@@ -23,115 +25,129 @@ export class BindingPanel {
     const pathId = this.selection.pathId;
     const model  = pathId ? this.paths.get(pathId) : null;
 
-    if (!model || !this.engine.oscillators.size) {
-      const hint = document.createElement('div');
-      hint.className = 'binding-empty-hint';
-      hint.textContent = !model
-        ? 'Click a path to enable bindings'
-        : 'Add an oscillator to create bindings';
+    if (!model) {
+      const hint = document.createElement('p');
+      hint.className = 'hint';
+      hint.style.fontSize = '11px';
+      hint.textContent = 'Select a path';
       this.container.appendChild(hint);
       return;
     }
 
-    // Build column definitions
-    const cols = this._buildCols(model);
+    if (!this.engine.oscillators.size) {
+      const hint = document.createElement('p');
+      hint.className = 'hint';
+      hint.style.fontSize = '11px';
+      hint.textContent = 'Add an oscillator';
+      this.container.appendChild(hint);
+      return;
+    }
 
-    // Build table
+    const oscs = [...this.engine.oscillators.values()];
+    const rows = this._buildRows(model);
+
+    // Outer scroll wrapper
     const wrap = document.createElement('div');
-    wrap.className = 'binding-matrix-wrap';
+    wrap.className = 'bm-v-wrap';
 
     const table = document.createElement('table');
-    table.className = 'binding-matrix';
+    table.className = 'bm-v-table';
 
-    // Header row
+    // ── Column headers (oscillator names) ──────────────
     const thead = table.createTHead();
     const hrow  = thead.insertRow();
-    const corner = document.createElement('th');
-    corner.className = 'bm-corner';
-    corner.textContent = '';
-    hrow.appendChild(corner);
 
-    for (const col of cols) {
+    const cornerTh = document.createElement('th');
+    cornerTh.className = 'bm-v-corner';
+    hrow.appendChild(cornerTh);
+
+    for (const osc of oscs) {
       const th = document.createElement('th');
-      th.className    = 'bm-param-col';
-      th.textContent  = col.label;
-      th.title        = col.label;
+      th.className = 'bm-v-osc-th';
+      th.title    = osc.name;
+      th.innerHTML = `<span class="bm-osc-dot" style="background:${osc.color}"></span><span class="bm-v-osc-name">${osc.name}</span>`;
       hrow.appendChild(th);
     }
 
-    // Oscillator rows
+    // ── Parameter rows ─────────────────────────────────
     const tbody = table.createTBody();
-    for (const [oscId, osc] of this.engine.oscillators) {
+
+    for (const row of rows) {
       const tr = tbody.insertRow();
+      tr.className = row.group === 'path' ? 'bm-v-path-row' : 'bm-v-pt-row';
 
-      // Row header (oscillator name + color)
-      const rowHead = document.createElement('td');
-      rowHead.className = 'bm-osc-header';
-      rowHead.innerHTML = `
-        <span class="bm-osc-dot" style="background:${osc.color}"></span>
-        <span class="bm-osc-name">${osc.name}</span>`;
-      tr.appendChild(rowHead);
+      // Row label
+      const label = document.createElement('td');
+      label.className = 'bm-v-param-label';
+      label.textContent = row.label;
+      label.title = row.label;
+      // Click label → highlight point in viewer
+      if (row.target && this.onHighlight) {
+        label.style.cursor = 'pointer';
+        label.addEventListener('click', () => {
+          this.onHighlight(row.target(pathId));
+        });
+        label.addEventListener('mouseleave', () => {
+          this.onHighlight(null);
+        });
+      }
+      tr.appendChild(label);
 
-      // Cells
-      for (const col of cols) {
-        const td  = document.createElement('td');
-        td.className = 'bm-cell';
+      // Oscillator cells
+      for (const osc of oscs) {
+        const td = document.createElement('td');
+        td.className = 'bm-v-cell';
 
-        // Find existing binding for this osc × param
-        const existing = this._findBinding(oscId, col.target(pathId));
+        const target = row.target(pathId);
+        const existing = this._findBinding(osc.id, target);
 
         if (existing) {
-          td.classList.add('has-binding');
-          td.style.setProperty('--cell-color', hexToRgba(osc.color, 0.18));
+          td.classList.add('bm-v-has');
+          td.style.setProperty('--bm-col', hexToRgba(osc.color, 0.25));
 
-          const slider = document.createElement('input');
-          slider.type  = 'range';
-          slider.min   = -10; slider.max = 10; slider.step = 0.1;
-          slider.value = existing.scale;
-          slider.title = `Scale: ${(+existing.scale).toFixed(2)}`;
-          slider.addEventListener('input', () => {
-            existing.scale = parseFloat(slider.value);
-            valEl.textContent = (+slider.value).toFixed(1);
-            this.onChange();
+          // Compact scale: box slider + remove
+          const inner = document.createElement('div');
+          inner.className = 'bm-v-cell-inner';
+
+          const scaleSlider = new BoxSlider(inner, {
+            label: '', unit: '', min: -10, max: 10, step: 0,
+            value: existing.scale, color: osc.color,
+            onChange: v => { existing.scale = v; this.onChange(); },
           });
+          // Make slider compact
+          scaleSlider.el.style.padding = '0';
 
-          const valEl = document.createElement('span');
-          valEl.className   = 'bm-cell-val';
-          valEl.textContent = (+existing.scale).toFixed(1);
-
-          const rmBtn = document.createElement('button');
-          rmBtn.className   = 'bm-cell-rm';
-          rmBtn.textContent = '×';
-          rmBtn.title       = 'Remove binding';
-          rmBtn.addEventListener('click', (e) => {
+          const rm = document.createElement('button');
+          rm.className   = 'bm-cell-rm';
+          rm.textContent = '×';
+          rm.title       = 'Remove binding';
+          rm.addEventListener('click', (e) => {
             e.stopPropagation();
             this.bs.remove(existing.id);
             this.onChange();
             this.render();
           });
-
-          td.appendChild(slider);
-          td.appendChild(valEl);
-          td.appendChild(rmBtn);
+          inner.appendChild(rm);
+          td.appendChild(inner);
         } else {
-          // Empty cell — click to add binding
-          td.classList.add('empty-cell');
-          td.title = `Bind ${osc.name} → ${col.label}`;
+          // Empty — click to add
+          td.classList.add('bm-v-empty');
+          td.title = `Bind ${osc.name} → ${row.label}`;
           td.addEventListener('click', () => {
-            const target = col.target(pathId);
-            this.bs.add(oscId, target, 1);
+            this.bs.add(osc.id, row.target(pathId), 1);
             this.onChange();
             this.render();
           });
-
           const plus = document.createElement('span');
-          plus.className   = 'bm-cell-plus';
+          plus.className   = 'bm-v-plus';
           plus.textContent = '+';
           td.appendChild(plus);
         }
 
         tr.appendChild(td);
       }
+
+      tbody.appendChild(tr);
     }
 
     table.appendChild(tbody);
@@ -139,41 +155,42 @@ export class BindingPanel {
     this.container.appendChild(wrap);
   }
 
-  // ── Private ────────────────────────────────────────
+  // ── Private ─────────────────────────────────────────
 
-  _buildCols(model) {
-    const cols = [];
+  _buildRows(model) {
+    const rows = [];
 
-    // Path-level columns
+    // Path-level rows
     for (const prop of PATH_PROPERTIES) {
-      cols.push({
-        label:  prop,
+      rows.push({
+        label: prop,
+        group: 'path',
         target: (pathId) => ({ pathId, pointIndex: null, handleRole: null, property: prop }),
       });
     }
 
-    // Point columns (x, y for each point)
-    const n = Math.min(model.points.length, MAX_PT_COLS);
+    // Per-point rows
+    const n = Math.min(model.points.length, MAX_PT_ROWS);
     for (let i = 0; i < n; i++) {
       for (const prop of ['x', 'y']) {
-        cols.push({
-          label:  `p${i}.${prop}`,
+        rows.push({
+          label: `p${i}.${prop}`,
+          group: 'point',
           target: (pathId) => ({ pathId, pointIndex: i, handleRole: null, property: prop }),
         });
       }
     }
 
-    return cols;
+    return rows;
   }
 
   _findBinding(oscId, target) {
     for (const b of this.bs.bindings.values()) {
-      if (b.oscillatorId !== oscId) continue;
-      const t = b.target;
-      if (t.pathId      !== target.pathId)      continue;
-      if (t.property    !== target.property)    continue;
-      if (t.pointIndex  !== target.pointIndex)  continue;
-      if (t.handleRole  !== target.handleRole)  continue;
+      if (b.oscillatorId !== oscId)          continue;
+      if (b.target.pathId     !== target.pathId)     continue;
+      if (b.target.property   !== target.property)   continue;
+      if (b.target.pointIndex !== target.pointIndex) continue;
+      if (b.target.handleRole !== target.handleRole) continue;
       return b;
     }
     return null;

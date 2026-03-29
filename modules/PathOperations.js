@@ -14,11 +14,20 @@ export class DragController {
     this.onModified  = onModified;
     this.pushHistory = pushHistory; // called once at drag start
 
+    // Snap-to-grid settings (updated externally)
+    this.snapEnabled = false;
+    this.snapSize    = 10;
+
     this._dragging  = null;
 
     interactionGroup.addEventListener('pointerdown', e => this._onDown(e));
     window.addEventListener('pointermove', e => this._onMove(e));
     window.addEventListener('pointerup',  e => this._onUp(e));
+  }
+
+  _snap(val) {
+    if (!this.snapEnabled) return val;
+    return Math.round(val / this.snapSize) * this.snapSize;
   }
 
   _onDown(e) {
@@ -60,7 +69,8 @@ export class DragController {
     const model = this.paths.get(pathId);
     if (!model) return;
 
-    const svgCoord = this.viewport.screenToSVG(e.clientX, e.clientY);
+    const raw = this.viewport.screenToSVG(e.clientX, e.clientY);
+    const svgCoord = { x: this._snap(raw.x), y: this._snap(raw.y) };
 
     if (type === 'anchor') {
       const pt = model.points[ptIdx];

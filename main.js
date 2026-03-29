@@ -18,9 +18,16 @@ import { PathInspector }    from './panels/PathInspector.js';
 // ────────────────────────────────────────────────────
 const state = {
   paths:    new Map(),
-  selection: { pathId: null, pointIds: new Set() },
+  selection: { pathId: null, pointIds: new Set(), highlightTarget: null },
   playback: { playing: false, bpm: 120, globalTime: 0 },
-  ui: { showAnchors: true, showHandles: true, showWireframe: false },
+  ui: {
+    showAnchors:   true,
+    showHandles:   true,
+    showWireframe: false,
+    showGrid:      false,
+    snapGrid:      false,
+    gridSize:      10,
+  },
 };
 
 // ────────────────────────────────────────────────────
@@ -114,7 +121,6 @@ function applyRedo() {
 }
 
 function _afterRestore() {
-  // Re-validate selection
   if (state.selection.pathId && !state.paths.has(state.selection.pathId)) {
     state.selection.pathId   = null;
     state.selection.pointIds = new Set();
@@ -132,12 +138,17 @@ const oscPanel = new OscillatorPanel(
 );
 
 const bindingPanel = new BindingPanel(
-  document.getElementById('binding-list'),
+  document.getElementById('inspector-binding-wrap'),
   bindingSys,
   oscEngine,
   state.paths,
   state.selection,
-  () => { bindingPanel.render(); }
+  () => { bindingPanel.render(); },
+  // onHighlight: set highlightTarget and let overlay pick it up
+  (target) => {
+    state.selection.highlightTarget = target;
+    overlay.highlightTarget = target;
+  },
 );
 
 const inspector = new PathInspector(
@@ -146,19 +157,14 @@ const inspector = new PathInspector(
     noSel:      document.getElementById('inspector-no-selection'),
     pathId:     document.getElementById('inspector-path-id'),
     pointCount: document.getElementById('inspector-point-count'),
-    tableBody:  document.getElementById('point-table-body'),
-    ptDetail:   document.getElementById('selected-point-detail'),
-    ptX:        document.getElementById('pt-x-input'),
-    ptY:        document.getElementById('pt-y-input'),
-    ptType:     document.getElementById('pt-type-select'),
   },
   state.paths,
   state.selection,
-  () => { inspector.render(); bindingPanel.render(); },
+  (pathId) => { inspector.render(); bindingPanel.render(); },
   pushHistory,
 );
 
-new DragController(
+const dragCtrl = new DragController(
   interactG,
   viewport,
   state.paths,
@@ -166,6 +172,10 @@ new DragController(
   (pathId) => { inspector.render(); },
   pushHistory,
 );
+
+// Keep drag controller in sync with snap settings
+dragCtrl.snapEnabled = state.ui.snapGrid;
+dragCtrl.snapSize    = state.ui.gridSize;
 
 // ────────────────────────────────────────────────────
 // rAF Loop
@@ -180,7 +190,7 @@ function tick(timestamp) {
 
   if (state.playback.playing) {
     state.playback.globalTime += dt;
-    oscEngine.tick(state.playback.globalTime);
+    oscEngine.tick(state.playback.globalTime, dt, state.playback.bpm);
     bindingSys.resetToBase(state.paths);
     bindingSys.applyAll(state.paths, oscEngine.oscillators);
     syncMirrorSlaves(state.paths);
@@ -201,7 +211,6 @@ function loadSVG(text) {
   try { result = parseSVGString(text); }
   catch(e) { alert('Could not parse SVG: ' + e.message); return; }
 
-  // Clear state (fresh load — also clear undo stack)
   state.paths.clear();
   state.selection.pathId   = null;
   state.selection.pointIds = new Set();
@@ -244,14 +253,12 @@ dropZone.addEventListener('drop', e => {
   reader.readAsText(file);
 });
 
-// Click empty canvas (no SVG loaded yet) → open file picker
 document.getElementById('drop-hint').addEventListener('click', () => fileInput.click());
 
 // ────────────────────────────────────────────────────
 // Path selection
 // ────────────────────────────────────────────────────
 svgEl.addEventListener('click', (e) => {
-  // Ignore clicks on anchor/handle controls
   if (e.target.dataset.role === 'anchor' || e.target.dataset.role === 'handle') return;
 
   const pathEl = e.target.closest('[data-path-id]');
@@ -274,7 +281,6 @@ svgEl.addEventListener('click', (e) => {
     return;
   }
 
-  // Click on background → deselect
   if (e.target === svgEl || e.target === contentG ||
       e.target === overlayG || e.target === interactG) {
     if (state.selection.pathId) {
@@ -307,6 +313,27 @@ document.getElementById('toggle-handles').addEventListener('click', (e) => {
 document.getElementById('toggle-wireframe').addEventListener('click', (e) => {
   state.ui.showWireframe = !state.ui.showWireframe;
   e.currentTarget.classList.toggle('active', state.ui.showWireframe);
+});
+
+document.getElementById('toggle-grid').addEventListener('click', (e) => {
+  state.ui.showGrid = !state.ui.showGrid;
+  viewport.showGrid = state.ui.showGrid;
+  e.currentTarget.classList.toggle('active', state.ui.showGrid);
+  viewport._updateViewBox(); // redraw grid immediately
+});
+
+document.getElementById('grid-size').addEventListener('change', (e) => {
+  const v = parseFloat(e.target.value) || 10;
+  state.ui.gridSize    = v;
+  viewport.gridSize    = v;
+  dragCtrl.snapSize    = v;
+  viewport._updateViewBox();
+});
+
+document.getElementById('toggle-snap').addEventListener('click', (e) => {
+  state.ui.snapGrid    = !state.ui.snapGrid;
+  dragCtrl.snapEnabled = state.ui.snapGrid;
+  e.currentTarget.classList.toggle('active', state.ui.snapGrid);
 });
 
 document.getElementById('btn-play').addEventListener('click', () => {
@@ -347,22 +374,19 @@ document.getElementById('btn-zoom-out').addEventListener('click', () => {
 
 document.getElementById('btn-zoom-fit').addEventListener('click', () => viewport.fitToView());
 
-// Undo / Redo buttons
 document.getElementById('btn-undo').addEventListener('click', applyUndo);
 document.getElementById('btn-redo').addEventListener('click', applyRedo);
 
-// Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
   const cmd = e.metaKey || e.ctrlKey;
   if (!cmd) return;
-
   if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); applyUndo(); }
   if (e.key === 'z' &&  e.shiftKey) { e.preventDefault(); applyRedo(); }
   if (e.key === 'y')                 { e.preventDefault(); applyRedo(); }
 });
 
 // ────────────────────────────────────────────────────
-// Add Oscillator button
+// Add Modulator button
 // ────────────────────────────────────────────────────
 document.getElementById('add-osc-btn').addEventListener('click', () => {
   oscEngine.add({ name: `LFO ${oscEngine.oscillators.size + 1}` });
@@ -399,7 +423,6 @@ function exportStaticSVG() {
   const vb = viewport.svgVB;
   svgDoc.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
   svgDoc.setAttribute('xmlns', ns);
-
   for (const model of state.paths.values()) {
     if (!model.visible) continue;
     const p = document.createElementNS(ns, 'path');
@@ -412,7 +435,6 @@ function exportStaticSVG() {
     if (t) p.setAttribute('transform', t);
     svgDoc.appendChild(p);
   }
-
   downloadText(new XMLSerializer().serializeToString(svgDoc), 'export.svg', 'image/svg+xml');
 }
 
@@ -434,13 +456,13 @@ function exportSMIL() {
     for (const b of bindingSys.bindings.values()) {
       if (b.target.pathId !== model.id || b.target.pointIndex !== null) continue;
       const osc = oscEngine.oscillators.get(b.oscillatorId);
-      if (!osc) continue;
-      const dur  = (1 / osc.frequency).toFixed(3);
+      if (!osc || osc.type !== 'lfo') continue;
+      const dur   = (1 / osc.frequency).toFixed(3);
       const FRAMES = 60;
-      const vals = [];
+      const vals  = [];
       for (let i = 0; i <= FRAMES; i++) {
         const t = (i / FRAMES) / osc.frequency;
-        oscEngine.tick(t);
+        osc._tickLFO(t);
         vals.push((osc.currentValue * b.scale).toFixed(3));
       }
       const anim = document.createElementNS(ns, 'animate');
@@ -450,10 +472,8 @@ function exportSMIL() {
       anim.setAttribute('repeatCount', 'indefinite');
       p.appendChild(anim);
     }
-
     out.appendChild(p);
   }
-
   downloadText(new XMLSerializer().serializeToString(out), 'animated.svg', 'image/svg+xml');
 }
 
@@ -461,9 +481,13 @@ function exportState() {
   const obj = {
     paths: [...state.paths.values()].map(serializePath),
     oscillators: [...oscEngine.oscillators.values()].map(o => ({
-      id: o.id, name: o.name, waveform: o.waveform,
-      frequency: o.frequency, amplitude: o.amplitude,
+      id: o.id, name: o.name, type: o.type,
+      waveform: o.waveform, frequency: o.frequency, amplitude: o.amplitude,
       phase: o.phase, offset: o.offset, color: o.color,
+      stepCount: o.stepCount, stepRate: o.stepRate,
+      stepValues: o.stepValues, stepAmp: o.stepAmp,
+      rwRate: o.rwRate, rwSmooth: o.rwSmooth, rwMin: o.rwMin, rwMax: o.rwMax,
+      expression: o.expression,
     })),
     bindings: [...bindingSys.bindings.values()].map(b => ({
       id: b.id, oscillatorId: b.oscillatorId, target: b.target, scale: b.scale,
@@ -481,6 +505,5 @@ function downloadText(text, filename, mime) {
   a.style.display = 'none';
   document.body.appendChild(a);
   a.click();
-  // Small delay before cleanup so browser can start the download
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
 }
