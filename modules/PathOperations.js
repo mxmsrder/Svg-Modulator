@@ -6,14 +6,15 @@ import { Point, BezierHandle, uid } from './PathModel.js';
 // Drag Controller
 // ────────────────────────────────────────────────────
 export class DragController {
-  constructor(interactionGroup, viewport, paths, selection, onModified) {
-    this.group      = interactionGroup;
-    this.viewport   = viewport;
-    this.paths      = paths;    // Map<id, PathModel>
-    this.selection  = selection;
-    this.onModified = onModified; // callback(pathId)
+  constructor(interactionGroup, viewport, paths, selection, onModified, pushHistory) {
+    this.group       = interactionGroup;
+    this.viewport    = viewport;
+    this.paths       = paths;
+    this.selection   = selection;
+    this.onModified  = onModified;
+    this.pushHistory = pushHistory; // called once at drag start
 
-    this._dragging  = null; // { type, pathId, ptIdx, handleRole, startSVG, startVal }
+    this._dragging  = null;
 
     interactionGroup.addEventListener('pointerdown', e => this._onDown(e));
     window.addEventListener('pointermove', e => this._onMove(e));
@@ -21,13 +22,16 @@ export class DragController {
   }
 
   _onDown(e) {
-    const role      = e.target.dataset.role;
-    const pathId    = e.target.dataset.pathId;
-    const ptIdx     = parseInt(e.target.dataset.ptIdx, 10);
+    const role       = e.target.dataset.role;
+    const pathId     = e.target.dataset.pathId;
+    const ptIdx      = parseInt(e.target.dataset.ptIdx, 10);
     const handleRole = e.target.dataset.handleRole || null;
 
     if (!role || !pathId) return;
     e.stopPropagation();
+
+    // Snapshot before first drag move
+    this._historyPushed = false;
 
     const model = this.paths.get(pathId);
     if (!model) return;
@@ -47,6 +51,11 @@ export class DragController {
 
   _onMove(e) {
     if (!this._dragging) return;
+    // Push history once at the start of a drag gesture
+    if (!this._historyPushed) {
+      this.pushHistory?.();
+      this._historyPushed = true;
+    }
     const { pathId, ptIdx, handleRole, type } = this._dragging;
     const model = this.paths.get(pathId);
     if (!model) return;

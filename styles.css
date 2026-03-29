@@ -14,7 +14,7 @@
   --accent2:    #ff6363;
   --green:      #63ffa0;
   --toolbar-h:  44px;
-  --binding-h:  140px;
+  --binding-h:  190px;
   --panel-w:    220px;
 }
 
@@ -209,8 +209,9 @@ body {
   align-items: center;
   justify-content: center;
   color: var(--text-dim);
-  pointer-events: none;
+  pointer-events: all;  /* clickable to open file picker */
   gap: 6px;
+  cursor: pointer;
 }
 #drop-hint.hidden { display: none; }
 #drop-hint p { font-size: 16px; }
@@ -240,12 +241,9 @@ body {
 
 #binding-list {
   flex: 1;
+  overflow: hidden;
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 8px 10px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  flex-direction: column;
 }
 
 /* ────────────────────────────────────────────────────
@@ -347,51 +345,136 @@ body {
 .osc-waveform svg { display: block; }
 
 /* ────────────────────────────────────────────────────
-   BINDING CHIPS
+   BINDING MATRIX
 ──────────────────────────────────────────────────── */
-.binding-chip {
+.binding-empty-hint {
+  padding: 12px 14px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.binding-matrix-wrap {
+  flex: 1;
+  overflow: auto;
+  font-size: 11px;
+}
+
+.binding-matrix {
+  border-collapse: collapse;
+  white-space: nowrap;
+  table-layout: fixed;
+}
+
+.bm-corner {
+  position: sticky;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  width: 88px;
+  min-width: 88px;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.bm-param-col {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  min-width: 68px;
+  width: 68px;
+  padding: 3px 4px;
+  background: var(--bg3);
+  color: var(--text-dim);
+  font-weight: 500;
+  text-align: center;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 10px;
+}
+
+.bm-osc-header {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: 88px;
+  min-width: 88px;
+  padding: 3px 8px;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 4px 10px;
-  font-size: 11px;
-  white-space: nowrap;
-  flex-shrink: 0;
+  gap: 5px;
+  height: 32px;
 }
-.binding-dot {
+.bm-osc-dot {
   width: 8px; height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
-.binding-remove {
+.bm-osc-name {
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bm-cell {
+  min-width: 68px;
+  width: 68px;
+  height: 32px;
+  border: 1px solid var(--border);
+  vertical-align: middle;
+  position: relative;
+  padding: 0 2px;
+}
+
+.bm-cell.empty-cell {
+  cursor: pointer;
+  text-align: center;
+}
+.bm-cell.empty-cell:hover { background: rgba(108,99,255,0.12); }
+.bm-cell-plus {
+  color: var(--border);
+  font-size: 14px;
+  line-height: 32px;
+  display: none;
+}
+.bm-cell.empty-cell:hover .bm-cell-plus { display: block; }
+
+.bm-cell.has-binding {
+  background: var(--cell-color, rgba(108,99,255,0.18));
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 3px;
+}
+.bm-cell.has-binding input[type=range] {
+  flex: 1;
+  height: 3px;
+  accent-color: currentColor;
+  cursor: pointer;
+}
+.bm-cell-val {
+  font-size: 9px;
+  color: var(--text-dim);
+  min-width: 22px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.bm-cell-rm {
   background: none;
   border: none;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1;
-  padding: 0;
-}
-.binding-remove:hover { color: var(--accent2); }
-
-/* Add binding button */
-.add-binding-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  background: none;
-  border: 1px dashed var(--border);
-  border-radius: 20px;
-  color: var(--text-dim);
-  font-size: 11px;
-  cursor: pointer;
+  padding: 0 1px;
   flex-shrink: 0;
 }
-.add-binding-btn:hover { border-color: var(--accent); color: var(--accent); }
+.bm-cell-rm:hover { color: var(--accent2); }
 
 /* ────────────────────────────────────────────────────
    INSPECTOR
@@ -463,29 +546,30 @@ body {
    SVG OVERLAY STYLES (applied via class)
 ──────────────────────────────────────────────────── */
 .anchor-pt {
-  fill: #fff;
-  stroke: var(--accent);
-  stroke-width: 1.5;
-  r: 4;
+  fill: none;
+  stroke: rgba(255,255,255,0.6);
   cursor: move;
 }
 .anchor-pt.selected {
-  fill: var(--accent);
-  r: 5;
+  stroke: var(--accent);
 }
-.anchor-pt.hovered { stroke: var(--green); }
 
+/* Handles are diamond <path> elements */
 .handle-pt {
-  fill: var(--bg);
-  stroke: var(--accent2);
-  stroke-width: 1;
-  r: 3;
+  fill: none;
+  stroke: rgba(255,255,255,0.6);
   cursor: move;
 }
 .handle-line {
-  stroke: var(--border);
-  stroke-width: 1;
-  stroke-dasharray: 3 2;
+  stroke: rgba(255,255,255,0.25);
+  stroke-dasharray: 2 2;
+}
+
+/* Undo/redo disabled state */
+.btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
 }
 
 /* Zoom display */

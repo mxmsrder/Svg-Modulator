@@ -1,11 +1,15 @@
-// BindingPanel.js — Shows active bindings as chips + "Add Binding" button
-// Provides a modal-style picker to create new bindings.
+// BindingPanel.js — Ableton-style binding matrix
+// Rows = Oscillators, Columns = Parameters (for selected path)
+// Each cell: empty → click to bind; filled → inline scale slider + remove
 
-import { bindingLabel, PATH_PROPERTIES } from '../modules/BindingSystem.js';
+import { PATH_PROPERTIES } from '../modules/BindingSystem.js';
+
+// Max points to show as columns (can scroll for more)
+const MAX_PT_COLS = 20;
 
 export class BindingPanel {
-  constructor(listEl, bindingSystem, engine, paths, selection, onChange) {
-    this.listEl    = listEl;
+  constructor(containerEl, bindingSystem, engine, paths, selection, onChange) {
+    this.container = containerEl;
     this.bs        = bindingSystem;
     this.engine    = engine;
     this.paths     = paths;
@@ -14,115 +18,171 @@ export class BindingPanel {
   }
 
   render() {
-    this.listEl.innerHTML = '';
+    this.container.innerHTML = '';
 
-    // Render existing binding chips
-    for (const [id, binding] of this.bs.bindings) {
-      const osc   = this.engine.oscillators.get(binding.oscillatorId);
-      if (!osc) continue;
-      const chip  = document.createElement('div');
-      chip.className = 'binding-chip';
-      chip.innerHTML = `
-        <span class="binding-dot" style="background:${osc.color}"></span>
-        <span>${osc.name}</span>
-        <span style="color:var(--text-dim)">→</span>
-        <span>${bindingLabel(binding.target)}</span>
-        <button class="binding-remove" title="Remove binding">×</button>`;
-      chip.querySelector('.binding-remove').addEventListener('click', () => {
-        this.bs.remove(id);
-        this.onChange();
-        this.render();
-      });
-      this.listEl.appendChild(chip);
+    const pathId = this.selection.pathId;
+    const model  = pathId ? this.paths.get(pathId) : null;
+
+    if (!model || !this.engine.oscillators.size) {
+      const hint = document.createElement('div');
+      hint.className = 'binding-empty-hint';
+      hint.textContent = !model
+        ? 'Click a path to enable bindings'
+        : 'Add an oscillator to create bindings';
+      this.container.appendChild(hint);
+      return;
     }
 
-    // "Add Binding" button (only shown when path is selected and oscillators exist)
-    if (this.selection.pathId && this.engine.oscillators.size > 0) {
-      const addBtn = document.createElement('button');
-      addBtn.className = 'add-binding-btn';
-      addBtn.textContent = '+ Bind';
-      addBtn.addEventListener('click', () => this._showPicker());
-      this.listEl.appendChild(addBtn);
+    // Build column definitions
+    const cols = this._buildCols(model);
+
+    // Build table
+    const wrap = document.createElement('div');
+    wrap.className = 'binding-matrix-wrap';
+
+    const table = document.createElement('table');
+    table.className = 'binding-matrix';
+
+    // Header row
+    const thead = table.createTHead();
+    const hrow  = thead.insertRow();
+    const corner = document.createElement('th');
+    corner.className = 'bm-corner';
+    corner.textContent = '';
+    hrow.appendChild(corner);
+
+    for (const col of cols) {
+      const th = document.createElement('th');
+      th.className    = 'bm-param-col';
+      th.textContent  = col.label;
+      th.title        = col.label;
+      hrow.appendChild(th);
     }
+
+    // Oscillator rows
+    const tbody = table.createTBody();
+    for (const [oscId, osc] of this.engine.oscillators) {
+      const tr = tbody.insertRow();
+
+      // Row header (oscillator name + color)
+      const rowHead = document.createElement('td');
+      rowHead.className = 'bm-osc-header';
+      rowHead.innerHTML = `
+        <span class="bm-osc-dot" style="background:${osc.color}"></span>
+        <span class="bm-osc-name">${osc.name}</span>`;
+      tr.appendChild(rowHead);
+
+      // Cells
+      for (const col of cols) {
+        const td  = document.createElement('td');
+        td.className = 'bm-cell';
+
+        // Find existing binding for this osc × param
+        const existing = this._findBinding(oscId, col.target(pathId));
+
+        if (existing) {
+          td.classList.add('has-binding');
+          td.style.setProperty('--cell-color', hexToRgba(osc.color, 0.18));
+
+          const slider = document.createElement('input');
+          slider.type  = 'range';
+          slider.min   = -10; slider.max = 10; slider.step = 0.1;
+          slider.value = existing.scale;
+          slider.title = `Scale: ${(+existing.scale).toFixed(2)}`;
+          slider.addEventListener('input', () => {
+            existing.scale = parseFloat(slider.value);
+            valEl.textContent = (+slider.value).toFixed(1);
+            this.onChange();
+          });
+
+          const valEl = document.createElement('span');
+          valEl.className   = 'bm-cell-val';
+          valEl.textContent = (+existing.scale).toFixed(1);
+
+          const rmBtn = document.createElement('button');
+          rmBtn.className   = 'bm-cell-rm';
+          rmBtn.textContent = '×';
+          rmBtn.title       = 'Remove binding';
+          rmBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.bs.remove(existing.id);
+            this.onChange();
+            this.render();
+          });
+
+          td.appendChild(slider);
+          td.appendChild(valEl);
+          td.appendChild(rmBtn);
+        } else {
+          // Empty cell — click to add binding
+          td.classList.add('empty-cell');
+          td.title = `Bind ${osc.name} → ${col.label}`;
+          td.addEventListener('click', () => {
+            const target = col.target(pathId);
+            this.bs.add(oscId, target, 1);
+            this.onChange();
+            this.render();
+          });
+
+          const plus = document.createElement('span');
+          plus.className   = 'bm-cell-plus';
+          plus.textContent = '+';
+          td.appendChild(plus);
+        }
+
+        tr.appendChild(td);
+      }
+    }
+
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    this.container.appendChild(wrap);
   }
 
-  _showPicker() {
-    // Remove any existing picker
-    document.getElementById('binding-picker')?.remove();
+  // ── Private ────────────────────────────────────────
 
-    const model = this.paths.get(this.selection.pathId);
-    if (!model) return;
+  _buildCols(model) {
+    const cols = [];
 
-    const picker = document.createElement('div');
-    picker.id = 'binding-picker';
-    picker.style.cssText = `
-      position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:1000;
-      display:flex; align-items:center; justify-content:center;`;
+    // Path-level columns
+    for (const prop of PATH_PROPERTIES) {
+      cols.push({
+        label:  prop,
+        target: (pathId) => ({ pathId, pointIndex: null, handleRole: null, property: prop }),
+      });
+    }
 
-    // Build oscillator options
-    const oscOptions = [...this.engine.oscillators.values()]
-      .map(o => `<option value="${o.id}">${o.name} (${o.waveform})</option>`).join('');
-
-    // Build target options: path-level props + per-point props
-    let targetOptions = PATH_PROPERTIES
-      .map(p => `<option value="path:${p}">${p}</option>`).join('');
-
-    model.points.forEach((pt, i) => {
-      targetOptions += `<option value="pt:${i}:anchor:x">pt[${i}].x</option>`;
-      targetOptions += `<option value="pt:${i}:anchor:y">pt[${i}].y</option>`;
-      targetOptions += `<option value="pt:${i}:in:x">pt[${i}].handleIn.x</option>`;
-      targetOptions += `<option value="pt:${i}:in:y">pt[${i}].handleIn.y</option>`;
-      targetOptions += `<option value="pt:${i}:out:x">pt[${i}].handleOut.x</option>`;
-      targetOptions += `<option value="pt:${i}:out:y">pt[${i}].handleOut.y</option>`;
-    });
-
-    picker.innerHTML = `
-      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:20px;min-width:280px;display:flex;flex-direction:column;gap:12px;">
-        <div style="font-weight:600;font-size:13px;">Add Binding</div>
-        <label style="font-size:11px;color:var(--text-dim);">Oscillator
-          <select id="bind-osc-sel" style="width:100%;margin-top:4px;">${oscOptions}</select>
-        </label>
-        <label style="font-size:11px;color:var(--text-dim);">Target Parameter
-          <select id="bind-target-sel" style="width:100%;margin-top:4px;">${targetOptions}</select>
-        </label>
-        <label style="font-size:11px;color:var(--text-dim);">Scale
-          <input type="number" id="bind-scale" value="1" step="0.1" style="width:100%;margin-top:4px;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:3px 6px;">
-        </label>
-        <div style="display:flex;gap:8px;justify-content:flex-end;">
-          <button id="bind-cancel" class="btn btn-sm">Cancel</button>
-          <button id="bind-confirm" class="btn btn-sm" style="background:var(--accent);border-color:var(--accent);">Add</button>
-        </div>
-      </div>`;
-
-    picker.querySelector('#bind-cancel').addEventListener('click', () => picker.remove());
-    picker.addEventListener('click', e => { if (e.target === picker) picker.remove(); });
-
-    picker.querySelector('#bind-confirm').addEventListener('click', () => {
-      const oscId  = picker.querySelector('#bind-osc-sel').value;
-      const tVal   = picker.querySelector('#bind-target-sel').value;
-      const scale  = parseFloat(picker.querySelector('#bind-scale').value) || 1;
-      const target = parseTargetValue(tVal, this.selection.pathId);
-      if (target) {
-        this.bs.add(oscId, target, scale);
-        this.onChange();
-        this.render();
+    // Point columns (x, y for each point)
+    const n = Math.min(model.points.length, MAX_PT_COLS);
+    for (let i = 0; i < n; i++) {
+      for (const prop of ['x', 'y']) {
+        cols.push({
+          label:  `p${i}.${prop}`,
+          target: (pathId) => ({ pathId, pointIndex: i, handleRole: null, property: prop }),
+        });
       }
-      picker.remove();
-    });
+    }
 
-    document.body.appendChild(picker);
+    return cols;
+  }
+
+  _findBinding(oscId, target) {
+    for (const b of this.bs.bindings.values()) {
+      if (b.oscillatorId !== oscId) continue;
+      const t = b.target;
+      if (t.pathId      !== target.pathId)      continue;
+      if (t.property    !== target.property)    continue;
+      if (t.pointIndex  !== target.pointIndex)  continue;
+      if (t.handleRole  !== target.handleRole)  continue;
+      return b;
+    }
+    return null;
   }
 }
 
-function parseTargetValue(val, pathId) {
-  const parts = val.split(':');
-  if (parts[0] === 'path') {
-    return { pathId, pointIndex: null, handleRole: null, property: parts[1] };
-  } else if (parts[0] === 'pt') {
-    const ptIdx      = parseInt(parts[1], 10);
-    const handleRole = parts[2] === 'anchor' ? null : parts[2];
-    const prop       = parts[3];
-    return { pathId, pointIndex: ptIdx, handleRole, property: prop };
-  }
-  return null;
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }

@@ -3,11 +3,12 @@
 import { resample, splitSegment, mirrorX, mirrorY, createLinkedMirrorClone } from '../modules/PathOperations.js';
 
 export class PathInspector {
-  constructor(els, paths, selection, onModified) {
-    this.els       = els;       // { content, noSel, pathId, pointCount, tableBody, ptDetail, ptX, ptY, ptType }
-    this.paths     = paths;     // Map<id, PathModel>
-    this.selection = selection; // { pathId, pointIds }
-    this.onModified = onModified; // callback(pathId, newPaths?)
+  constructor(els, paths, selection, onModified, pushHistory) {
+    this.els        = els;
+    this.paths      = paths;
+    this.selection  = selection;
+    this.onModified = onModified;
+    this.pushHistory = pushHistory;
 
     this._bindOps();
     this._bindPointEdit();
@@ -97,6 +98,7 @@ export class PathInspector {
       const pathId = this.selection.pathId;
       const model  = this.paths.get(pathId);
       if (!model) return;
+      this.pushHistory?.();
       const count = parseInt(document.getElementById('resample-count').value, 10) || 32;
       resample(model, count);
       this.selection.pointIds = new Set();
@@ -108,6 +110,7 @@ export class PathInspector {
       const pathId = this.selection.pathId;
       const model  = this.paths.get(pathId);
       if (!model) return;
+      this.pushHistory?.();
       const ptId  = [...this.selection.pointIds][0];
       const ptIdx = model.points.findIndex(p => p.id === ptId);
       if (ptIdx < 0) return;
@@ -122,6 +125,7 @@ export class PathInspector {
       const pathId = this.selection.pathId;
       const model  = this.paths.get(pathId);
       if (!model) return;
+      this.pushHistory?.();
       mirrorX(model);
       this.onModified(pathId);
       this.render();
@@ -131,6 +135,7 @@ export class PathInspector {
       const pathId = this.selection.pathId;
       const model  = this.paths.get(pathId);
       if (!model) return;
+      this.pushHistory?.();
       mirrorY(model);
       this.onModified(pathId);
       this.render();

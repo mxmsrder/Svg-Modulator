@@ -37,6 +37,11 @@
       </button>
     </div>
 
+    <div class="toolbar-group">
+      <button class="btn btn-sm" id="btn-undo" title="Undo (⌘Z)" disabled>↩</button>
+      <button class="btn btn-sm" id="btn-redo" title="Redo (⌘⇧Z)" disabled>↪</button>
+    </div>
+
     <div class="toolbar-group toolbar-right">
       <label class="toolbar-label">BPM</label>
       <input type="number" id="bpm-input" value="120" min="10" max="400" step="1" class="num-input">
@@ -67,7 +72,7 @@
       <div id="canvas-drop-zone">
         <div id="drop-hint">
           <p>Drop an SVG file here</p>
-          <p class="sub">or use Import SVG above</p>
+          <p class="sub">or click to browse</p>
         </div>
         <!-- SVG viewport injected by CanvasViewport.js -->
         <svg id="editor-svg" xmlns="http://www.w3.org/2000/svg">
