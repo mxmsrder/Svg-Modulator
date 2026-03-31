@@ -3,6 +3,38 @@
 
 const NS = 'http://www.w3.org/2000/svg';
 
+// ── HSL color helpers ────────────────────────────────
+function hexToHSL(hex) {
+  if (!hex || hex.length < 7) return [0, 0, 50];
+  let r = parseInt(hex.slice(1,3), 16) / 255;
+  let g = parseInt(hex.slice(3,5), 16) / 255;
+  let b = parseInt(hex.slice(5,7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch(max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  return [h * 360, s * 100, l * 100];
+}
+
+function applyHSLDelta(hexColor, dh, ds, dl) {
+  if (!hexColor || hexColor === 'none' || (!dh && !ds && !dl)) return hexColor;
+  // Handle non-hex colors gracefully
+  if (!hexColor.startsWith('#')) return hexColor;
+  const [h, s, l] = hexToHSL(hexColor);
+  const nh = ((h + dh) % 360 + 360) % 360;
+  const ns = Math.max(0, Math.min(100, s + ds));
+  const nl = Math.max(0, Math.min(100, l + dl));
+  return `hsl(${nh.toFixed(1)},${ns.toFixed(1)}%,${nl.toFixed(1)}%)`;
+}
+
 export class CanvasViewport {
   constructor(svgEl, contentGroup) {
     this.svg   = svgEl;
@@ -132,13 +164,13 @@ export class CanvasViewport {
 
         if (showWireframe) {
           el.setAttribute('fill', 'none');
-          el.setAttribute('stroke', model.stroke || '#888');
+          el.setAttribute('stroke', applyHSLDelta(model.stroke, model.strokeH, model.strokeS, model.strokeL) || '#888');
           el.setAttribute('stroke-width', (model.strokeWidth * invZ).toFixed(4));
           el.setAttribute('fill-opacity', '0');
         } else {
-          el.setAttribute('fill',         model.fill);
+          el.setAttribute('fill',         applyHSLDelta(model.fill,   model.fillH,   model.fillS,   model.fillL));
           el.setAttribute('fill-opacity', model.fillOpacity);
-          el.setAttribute('stroke',       model.stroke);
+          el.setAttribute('stroke',       applyHSLDelta(model.stroke, model.strokeH, model.strokeS, model.strokeL));
           el.setAttribute('stroke-width', model.strokeWidth);
         }
         if (model.selected) {

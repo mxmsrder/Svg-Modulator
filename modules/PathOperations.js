@@ -3,6 +3,37 @@
 import { Point, BezierHandle, uid } from './PathModel.js';
 
 // ────────────────────────────────────────────────────
+// Infer Point Types from handle geometry
+// ────────────────────────────────────────────────────
+
+/**
+ * Classify each point as 'cusp', 'smooth', or 'symmetric'
+ * based on the angle between its handle-in and handle-out vectors.
+ * Call this after SVG import to preserve sharp corners.
+ */
+export function inferPointTypes(model) {
+  for (const pt of model.points) {
+    if (!pt.handleIn || !pt.handleOut) { pt.type = 'cusp'; continue; }
+    const dix = pt.handleIn.x  - pt.x;
+    const diy = pt.handleIn.y  - pt.y;
+    const dox = pt.handleOut.x - pt.x;
+    const doy = pt.handleOut.y - pt.y;
+    const lenI = Math.sqrt(dix*dix + diy*diy);
+    const lenO = Math.sqrt(dox*dox + doy*doy);
+    if (lenI < 0.001 || lenO < 0.001) { pt.type = 'cusp'; continue; }
+    // dot product of normalised vectors; -1 = perfectly anti-parallel (straight tangent)
+    const dot = (dix/lenI)*(dox/lenO) + (diy/lenI)*(doy/lenO);
+    if (dot > -0.985) {
+      // Handles NOT anti-parallel → sharp corner
+      pt.type = 'cusp';
+    } else {
+      // Nearly anti-parallel → smooth; check if lengths are equal
+      pt.type = Math.abs(lenI - lenO) < 0.5 ? 'symmetric' : 'smooth';
+    }
+  }
+}
+
+// ────────────────────────────────────────────────────
 // Drag Controller
 // ────────────────────────────────────────────────────
 export class DragController {
@@ -48,7 +79,17 @@ export class DragController {
     // Select point — fire immediately so inspector shows coords
     if (role === 'anchor') {
       this.selection.pathId = pathId;
-      this.selection.pointIds = new Set([model.points[ptIdx]?.id]);
+      const ptId = model.points[ptIdx]?.id;
+      if (e.shiftKey && ptId) {
+        // Shift+click: toggle this point in the multi-selection
+        if (this.selection.pointIds.has(ptId)) {
+          this.selection.pointIds.delete(ptId);
+        } else {
+          this.selection.pointIds.add(ptId);
+        }
+      } else {
+        this.selection.pointIds = new Set(ptId ? [ptId] : []);
+      }
       this.onModified(pathId); // update inspector immediately on click
     }
 

@@ -6,7 +6,7 @@ import { CanvasViewport }   from './modules/CanvasViewport.js';
 import { PointOverlay }     from './modules/PointOverlay.js';
 import { OscillatorEngine } from './modules/OscillatorEngine.js';
 import { BindingSystem }    from './modules/BindingSystem.js';
-import { DragController, syncMirrorSlaves } from './modules/PathOperations.js';
+import { DragController, syncMirrorSlaves, inferPointTypes } from './modules/PathOperations.js';
 import { History }          from './modules/History.js';
 import { OscillatorPanel }  from './panels/OscillatorPanel.js';
 import { BindingPanel }     from './panels/BindingPanel.js';
@@ -252,7 +252,10 @@ function loadSVG(text) {
   history._undo = []; history._redo = [];
   history._updateButtons();
 
-  for (const model of result.paths) state.paths.set(model.id, model);
+  for (const model of result.paths) {
+    inferPointTypes(model);
+    state.paths.set(model.id, model);
+  }
 
   viewport.setViewBox(result.viewBox);
   document.getElementById('drop-hint').classList.add('hidden');
@@ -379,11 +382,63 @@ document.getElementById('btn-undo').addEventListener('click', applyUndo);
 document.getElementById('btn-redo').addEventListener('click', applyRedo);
 
 document.addEventListener('keydown', (e) => {
+  // Don't steal keys when user is typing in an input
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+
   const cmd = e.metaKey || e.ctrlKey;
-  if (!cmd) return;
-  if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); applyUndo(); }
-  if (e.key === 'z' &&  e.shiftKey) { e.preventDefault(); applyRedo(); }
-  if (e.key === 'y')                 { e.preventDefault(); applyRedo(); }
+
+  if (cmd) {
+    if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); applyUndo(); }
+    if (e.key === 'z' &&  e.shiftKey) { e.preventDefault(); applyRedo(); }
+    if (e.key === 'y')                 { e.preventDefault(); applyRedo(); }
+    return;
+  }
+
+  // Space — toggle play / stop
+  if (e.key === ' ') {
+    e.preventDefault();
+    if (state.playback.playing) {
+      state.playback.playing = false;
+      document.getElementById('btn-play').classList.remove('active');
+      bindingSys.resetToBase(state.paths);
+    } else {
+      state.playback.playing = true;
+      document.getElementById('btn-play').classList.add('active');
+    }
+    return;
+  }
+
+  // H or F — fit view
+  if (e.key === 'h' || e.key === 'H' || e.key === 'f' || e.key === 'F') {
+    viewport.fitToView();
+    return;
+  }
+
+  // Delete / Backspace — remove selected points or whole shape
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    e.preventDefault();
+    const pathId = state.selection.pathId;
+    if (!pathId) return;
+    const model = state.paths.get(pathId);
+    if (!model) return;
+
+    if (state.selection.pointIds.size > 0) {
+      pushHistory();
+      model.points = model.points.filter(pt => !state.selection.pointIds.has(pt.id));
+      state.selection.pointIds = new Set();
+      inspector.render();
+      bindingPanel.render();
+    } else {
+      if (confirm('Delete this shape?')) {
+        pushHistory();
+        state.paths.delete(pathId);
+        state.selection.pathId   = null;
+        state.selection.pointIds = new Set();
+        inspector.render();
+        bindingPanel.render();
+      }
+    }
+  }
 });
 
 document.getElementById('add-osc-btn').addEventListener('click', () => {

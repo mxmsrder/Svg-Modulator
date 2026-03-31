@@ -81,6 +81,14 @@ export class PathModel {
     this.scaleX    = 1; this.baseScaleX  = 1;
     this.scaleY    = 1; this.baseScaleY  = 1;
 
+    // HSL color deltas — animated, reset to 0 each frame; applied on top of fill/stroke hex
+    this.fillH = 0; this.baseFillH = 0;
+    this.fillS = 0; this.baseFillS = 0;
+    this.fillL = 0; this.baseFillL = 0;
+    this.strokeH = 0; this.baseStrokeH = 0;
+    this.strokeS = 0; this.baseStrokeS = 0;
+    this.strokeL = 0; this.baseStrokeL = 0;
+
     // Editor state
     this.selected  = false;
     this.visible   = true;
@@ -192,6 +200,12 @@ export class PathModel {
     c.rotation = this.rotation; c.baseRotation = this.baseRotation;
     c.scaleX = this.scaleX; c.baseScaleX = this.baseScaleX;
     c.scaleY = this.scaleY; c.baseScaleY = this.baseScaleY;
+    c.fillH = this.fillH; c.baseFillH = this.baseFillH;
+    c.fillS = this.fillS; c.baseFillS = this.baseFillS;
+    c.fillL = this.fillL; c.baseFillL = this.baseFillL;
+    c.strokeH = this.strokeH; c.baseStrokeH = this.baseStrokeH;
+    c.strokeS = this.strokeS; c.baseStrokeS = this.baseStrokeS;
+    c.strokeL = this.strokeL; c.baseStrokeL = this.baseStrokeL;
     c.points = this.points.map(p => p.clone());
     return c;
   }

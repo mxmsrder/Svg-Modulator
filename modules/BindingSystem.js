@@ -31,6 +31,8 @@ export function bindingLabel(target) {
 export const PATH_PROPERTIES = [
   'strokeWidth', 'fillOpacity',
   'rotation', 'scaleX', 'scaleY', 'tx', 'ty',
+  'fillH', 'fillS', 'fillL',
+  'strokeH', 'strokeS', 'strokeL',
 ];
 
 // ────────────────────────────────────────────────────
@@ -61,6 +63,12 @@ export class BindingSystem {
       model.scaleY       = model.baseScaleY;
       model.tx           = model.baseTx;
       model.ty           = model.baseTy;
+      model.fillH        = model.baseFillH;
+      model.fillS        = model.baseFillS;
+      model.fillL        = model.baseFillL;
+      model.strokeH      = model.baseStrokeH;
+      model.strokeS      = model.baseStrokeS;
+      model.strokeL      = model.baseStrokeL;
 
       for (const pt of model.points) {
         pt.x = pt.baseX;

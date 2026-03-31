@@ -107,20 +107,33 @@ export class BoxSlider {
       this.onChange?.(this.value);
     });
 
-    // Double-click → type a value
+    // Double-click → type a value (fixed-positioned to escape overflow:hidden)
     this._track.addEventListener('dblclick', (e) => {
       e.stopPropagation();
+      const rect  = this._track.getBoundingClientRect();
       const input = document.createElement('input');
-      input.type      = 'number';
-      input.value     = this.value;
-      input.min       = this.min;
-      input.max       = this.max;
-      input.step      = this.step || 'any';
-      input.className = 'bs-inline-input';
-      input.style.cssText =
-        'position:absolute;inset:0;width:100%;height:100%;background:var(--bg3);' +
-        'border:none;border-radius:3px;color:var(--text);font-size:11px;text-align:center;z-index:10;';
-      this._track.appendChild(input);
+      input.type  = 'number';
+      input.value = this.value;
+      input.min   = this.min;
+      input.max   = this.max;
+      input.step  = this.step || 'any';
+      input.style.cssText = [
+        `position:fixed`,
+        `left:${rect.left}px`,
+        `top:${rect.top}px`,
+        `width:${rect.width}px`,
+        `height:${rect.height}px`,
+        `z-index:9999`,
+        `background:#151515`,
+        `border:1px solid #7b72ff`,
+        `color:#e8e8e8`,
+        `font-size:10px`,
+        `font-family:monospace`,
+        `text-align:center`,
+        `padding:0`,
+        `outline:none`,
+      ].join(';');
+      document.body.appendChild(input);
       input.focus();
       input.select();
       const commit = () => {
@@ -132,7 +145,7 @@ export class BoxSlider {
         }
         input.remove();
       };
-      input.addEventListener('blur',   commit);
+      input.addEventListener('blur', commit);
       input.addEventListener('keydown', (ke) => {
         if (ke.key === 'Enter')  commit();
         if (ke.key === 'Escape') input.remove();

@@ -46,6 +46,14 @@ export class BindingPanel {
     const oscs = [...this.engine.oscillators.values()];
     const rows = this._buildRows(model);
 
+    // Find selected point index for row highlighting
+    const selIds = this.selection.pointIds;
+    let selectedPtIdx = -1;
+    if (selIds.size === 1) {
+      const selId = [...selIds][0];
+      selectedPtIdx = model.points.findIndex(p => p.id === selId);
+    }
+
     // Outer scroll wrapper
     const wrap = document.createElement('div');
     wrap.className = 'bm-v-wrap';
@@ -79,6 +87,9 @@ export class BindingPanel {
       // Row label
       const label = document.createElement('td');
       label.className = 'bm-v-param-label';
+      if (row.group === 'point' && row.ptIdx === selectedPtIdx) {
+        label.classList.add('bm-v-pt-sel');
+      }
       label.textContent = row.label;
       label.title = row.label;
       // Click label → highlight point in viewer
@@ -176,6 +187,7 @@ export class BindingPanel {
         rows.push({
           label: `p${i}.${prop}`,
           group: 'point',
+          ptIdx: i,
           target: (pathId) => ({ pathId, pointIndex: i, handleRole: null, property: prop }),
         });
       }
