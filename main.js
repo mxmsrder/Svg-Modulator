@@ -327,9 +327,14 @@ function tick(timestamp) {
     bindingSys.resetToBase(state.paths);
     bindingSys.applyAll(state.paths, oscEngine.oscillators);
     syncMirrorSlaves(state.paths);
+  } else {
+    // Always update device sensors so the live display works when stopped
+    for (const osc of oscEngine.oscillators.values()) {
+      if (osc.enabled && osc.type === 'device') osc._tickDevice(dt);
+    }
   }
 
-  // Always tick panel so track/walk visualizers animate even when stopped
+  // Always tick panel so track/walk/device visualizers animate even when stopped
   oscPanel.tick(state.playback.globalTime, state.playback.playing);
 
   viewport.render(state.paths, state.ui.showWireframe);
@@ -338,7 +343,9 @@ function tick(timestamp) {
 
 requestAnimationFrame(t => { lastTime = t; requestAnimationFrame(tick); });
 
-// ── Library dropdowns ────────────────────────────────
+// ── Dynamic folder scanning ───────────────────────────
+// Reads a directory listing served by any static HTTP server
+// (Python http.server, nginx, Apache autoindex, etc.)
 
 const BUILT_IN_SHAPES = {
   circle:   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500"><circle cx="250" cy="250" r="200" fill="#ffffff" stroke="none"/></svg>`,
@@ -346,47 +353,31 @@ const BUILT_IN_SHAPES = {
   triangle: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500"><polygon points="250,50 475,450 25,450" fill="#ffffff" stroke="none"/></svg>`,
 };
 
-async function loadLibrary() {
+async function fetchFolderFiles(folderPath, ext) {
   try {
-    const resp = await fetch('./library.json');
-    if (!resp.ok) return;
-    const lib = await resp.json();
-
-    // Populate LOAD menu sketches column
-    const lskList = document.getElementById('load-sketches-list');
-    // Populate LOAD menu shapes column (library SVGs go above built-in shapes)
-    const loadShapesList = document.getElementById('load-shapes-list');
-
-    for (const item of (lib.sketches || [])) {
-      if (!lskList) continue;
-      const btn = document.createElement('button');
-      btn.textContent = item.name;
-      btn.dataset.file = item.file;
-      btn.dataset.kind = 'osc';
-      lskList.appendChild(btn);
-    }
-    for (const item of (lib.svgs || [])) {
-      if (!loadShapesList) continue;
-      const btn = document.createElement('button');
-      btn.textContent = item.name;
-      btn.dataset.file = item.file;
-      btn.dataset.kind = 'svg';
-      loadShapesList.insertBefore(btn, loadShapesList.firstChild);
-    }
-  } catch(e) { /* library.json not found */ }
+    const resp = await fetch(folderPath);
+    if (!resp.ok) return [];
+    const html = await resp.text();
+    const doc  = new DOMParser().parseFromString(html, 'text/html');
+    return [...doc.querySelectorAll('a[href]')]
+      .map(a => decodeURIComponent(a.getAttribute('href') || ''))
+      .filter(h => h.toLowerCase().endsWith(ext) && !h.includes('/') && !h.startsWith('?') && !h.startsWith('#'))
+      .map(filename => ({
+        name: filename.slice(0, -ext.length),
+        file: folderPath.replace(/\/$/, '') + '/' + filename,
+      }));
+  } catch { return []; }
 }
 
 async function openLibraryFile(file, kind) {
   try {
-    const resp = await fetch('./' + file);
+    const resp = await fetch(file.startsWith('./') ? file : './' + file);
     if (!resp.ok) throw new Error(resp.status);
     const text = await resp.text();
     if (kind === 'osc') restoreFullState(JSON.parse(text));
     else loadSVG(text);
   } catch(e) { alert('Could not open ' + file + ': ' + e.message); }
 }
-
-// (SKETCHES and SVG toolbar dropdowns removed — use LOAD dropdown instead)
 
 // CLEAR button
 document.getElementById('btn-clear-canvas').addEventListener('click', () => {
@@ -412,9 +403,7 @@ function newCanvas() {
 // ── Startup ───────────────────────────────────────────
 
 async function startup() {
-  // Let the first frame render before loading content
   await new Promise(r => requestAnimationFrame(r));
-  await loadLibrary();
   // Load base shapes (no LFO clutter at startup)
   try {
     const resp = await fetch('./svg-library/base-shapes.svg');
@@ -769,13 +758,13 @@ function saveSketch(name) {
     const btn = document.getElementById('btn-save-local');
     if (btn) { btn.textContent = '✓'; setTimeout(() => { btn.textContent = 'SAVE'; }, 1000); }
   } catch(e) { alert('Save failed: ' + e.message); }
-  rebuildLoadMenu();
+  _rebuildHistoryList();
 }
 
-function rebuildLoadMenu() {
-  const saves   = getSaves();
-  const histEl  = document.getElementById('load-history-list');
+function _rebuildHistoryList() {
+  const histEl = document.getElementById('load-history-list');
   if (!histEl) return;
+  const saves = getSaves();
   histEl.innerHTML = '';
   if (!saves.length) {
     histEl.innerHTML = '<span class="dropdown-empty">No saves yet</span>';
@@ -793,13 +782,58 @@ function rebuildLoadMenu() {
   }
 }
 
+async function rebuildLoadMenu() {
+  _rebuildHistoryList();
+
+  // Shapes — built-ins + scan svg-library/ dynamically
+  const shapesEl = document.getElementById('load-shapes-list');
+  if (shapesEl) {
+    shapesEl.innerHTML = '';
+    for (const [shape, label] of [['circle','Circle'],['square','Square'],['triangle','Triangle']]) {
+      const btn = document.createElement('button');
+      btn.textContent = label; btn.dataset.shape = shape;
+      shapesEl.appendChild(btn);
+    }
+    const placeholder = document.createElement('span');
+    placeholder.className = 'dropdown-empty'; placeholder.textContent = '…';
+    shapesEl.appendChild(placeholder);
+    const svgFiles = await fetchFolderFiles('./svg-library/', '.svg');
+    placeholder.remove();
+    for (const f of svgFiles) {
+      if (f.file.includes('base-shapes')) continue;
+      const btn = document.createElement('button');
+      btn.textContent = f.name; btn.dataset.file = f.file;
+      shapesEl.appendChild(btn);
+    }
+  }
+
+  // Sketches — scan sketches/ dynamically
+  const sketchesEl = document.getElementById('load-sketches-list');
+  if (sketchesEl) {
+    sketchesEl.innerHTML = '<span class="dropdown-empty">…</span>';
+    const oscFiles = await fetchFolderFiles('./sketches/', '.osc');
+    sketchesEl.innerHTML = '';
+    if (!oscFiles.length) {
+      sketchesEl.innerHTML = '<span class="dropdown-empty">No sketches yet</span>';
+    } else {
+      for (const f of oscFiles) {
+        const btn = document.createElement('button');
+        btn.textContent = f.name; btn.dataset.file = f.file; btn.dataset.kind = 'osc';
+        sketchesEl.appendChild(btn);
+      }
+    }
+  }
+}
+
 document.getElementById('btn-save-local').addEventListener('click', () => saveSketch());
 
-// Load dropdown toggle
+// Load dropdown toggle — trigger async scan each time
 document.getElementById('load-btn').addEventListener('click', (e) => {
   e.stopPropagation();
-  rebuildLoadMenu();
-  document.getElementById('load-btn').closest('.dropdown').classList.toggle('open');
+  const dropdown = document.getElementById('load-btn').closest('.dropdown');
+  const opening = !dropdown.classList.contains('open');
+  dropdown.classList.toggle('open');
+  if (opening) rebuildLoadMenu();
 });
 
 // Load menu: shapes column (library SVGs + built-in shapes)

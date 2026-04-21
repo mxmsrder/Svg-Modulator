@@ -1,22 +1,33 @@
 # SVG Oscillator Editor
 
-A browser-based animation sketchbook. Import SVG shapes, bind modulators to their geometry and colour, and export animated sequences. No build step — open `index.html` in a browser or serve with any static HTTP server.
+A browser-based animation sketchbook. Import SVG shapes, connect modulators to their geometry and colour, and watch them animate in real time. No installation, no build step — open `index.html` in a browser or run a local server:
 
 ```bash
 python3 -m http.server 8000
-# → http://localhost:8000
+# open http://localhost:8000
 ```
+
+For a full technical reference of every file and module, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
-## Getting Started
+## What it does
 
-1. Open the editor — base shapes load automatically on first visit.
-2. Import a shape — drag an `.svg` file onto the canvas, or use **IMPORT** in the toolbar.
-3. Add a modulator — click **+ ADD** in the Modulators panel on the left.
-4. Bind it — select a path, then find the Bindings table in the Inspector. Drag a slider in the row you want to animate (e.g. `tx` for horizontal movement).
-5. Play — press **Space** or **▶ PLAY**. Stop with **■ STOP**.
-6. Save — press **S**, or click **SAVE** in the toolbar to store in the browser. Use **EXPORT → Save Sketch (.osc)** to download a file.
+You draw or import shapes. You add oscillators (LFOs, step sequencers, envelopes, audio reactivity, sensors, and more). You connect an oscillator to a shape property — position, rotation, scale, colour — and press Play. The shapes animate.
+
+Everything is stored in the browser or exported as a `.osc` sketch file you can reopen later.
+
+---
+
+## Quick start
+
+1. Open the editor. A set of base shapes loads automatically on the first visit.
+2. Press **▶ PLAY** (or Space) to see animation if oscillators are already present.
+3. Click a shape to select it. The right panel (Inspector) shows its properties and a Bindings table.
+4. In the left panel (Modulators), click **+ ADD** to create a new oscillator.
+5. In the Inspector Bindings table, drag the slider next to a property (e.g. `tx`) to connect that oscillator to it. The slider value sets the strength of the effect.
+6. Press **▶ PLAY** and watch the shape move.
+7. Press **S** or click **SAVE** to save to the browser.
 
 ---
 
@@ -24,12 +35,14 @@ python3 -m http.server 8000
 
 | Action | Input |
 |---|---|
-| Pan | Hold **Alt/Option** + drag, or two-finger scroll on trackpad |
-| Zoom | **Ctrl + scroll** or pinch on trackpad |
-| Fit view | **H** or **F**, or the **FIT** button |
-| Rubber-band select | Drag on empty canvas |
-| Add to selection | **Shift + click** a path or point |
-| Toggle play | **Space** |
+| Pan canvas | Hold **Alt/Option** + drag |
+| Pan (trackpad) | Two-finger scroll |
+| Zoom | **Ctrl + scroll** or pinch |
+| Fit view | **H** or **F**, or **FIT** button |
+| Select shape | Click it |
+| Add to selection | **Shift + click** |
+| Rubber-band select | Drag on empty canvas area |
+| Toggle play/stop | **Space** |
 | Save | **S** or **Cmd/Ctrl + S** |
 | Undo / Redo | **Cmd/Ctrl + Z** / **Cmd/Ctrl + Shift + Z** |
 | Delete selected | **Delete** or **Backspace** |
@@ -38,199 +51,151 @@ python3 -m http.server 8000
 
 ## Toolbar
 
-**Left** — IMPORT (drag or browse) and EXPORT dropdown.
+**Left** — IMPORT (drag an `.svg` or `.osc` file, or browse) and EXPORT dropdown.
 
-**Centre** — SAVE · LOAD▾ · CLEAR · ↩ · ↪ · then view toggles (● PTS, ◇ HDL, ⬜ WIRE).
+**Centre** — SAVE · LOAD▾ · CLEAR · ↩ Undo · ↪ Redo · then view toggles: ● PTS (anchor points), ◇ HDL (bezier handles), ⬜ WIRE (wireframe mode).
 
-The **LOAD** dropdown has three columns:
+**Right** — BPM input, zoom controls, ▶ PLAY / ■ STOP.
 
-- **Recent** — last 10 browser saves (auto-filled when you press SAVE)
-- **Shapes** — SVG files from `svg-library/` listed in `library.json`, plus Circle, Square, Triangle built-ins
-- **Sketches** — `.osc` sketch files listed in `library.json`
+### LOAD dropdown
 
-**Right** — BPM input, zoom buttons, ▶ PLAY.
+The LOAD dropdown has three columns that populate when you open it:
+
+- **Recent** — last 10 browser saves (filled automatically when you press SAVE)
+- **Shapes** — Circle, Square, Triangle built-ins, plus any `.svg` files found in `svg-library/`
+- **Sketches** — any `.osc` sketch files found in `sketches/`
+
+Drop a new file into `svg-library/` or `sketches/` and it appears the next time you open the dropdown — no configuration file needed.
 
 ---
 
-## Modulator Types
+## Modulators
 
-| Type | Description | Key parameters |
-|---|---|---|
-| **LFO** | Sine / triangle / square / sawtooth / noise oscillator | Frequency, Amplitude, Phase, Offset, Curve |
-| **Step** | Beat-locked step sequencer | Steps (2–16), Rate (steps/beat), per-step values (drag up/down) |
-| **Walk** | Random walk with low-pass smoothing | Rate, Smooth, Min, Max |
-| **Audio** | Live microphone frequency analysis | Band (all/low/mid/high), Smooth, Amp |
-| **Expr** | Custom JS formula — variables `t` (seconds) and `bpm` | Expression textarea with examples |
-| **Track** | Audio file frequency analysis with spectrum display | Load audio, Band, Smooth, Amp, Threshold, Mute |
-| **Env** | Freeform envelope — drag breakpoints on a canvas | Period, Amp, Smooth, SNAP, LOOP |
-| **Device** | Live sensor input | Sensor selector, Scale, Smooth |
+Add a modulator with **+ ADD** in the left panel. Each modulator card shows:
 
-**Common controls on every card**
-
-- **●/○** toggle — enable or disable without deleting
-- **Double-click name** — rename inline
-- **Type selector** — switch type (undoable)
+- **●/○** — enable or disable the modulator (disabled outputs zero)
+- **Double-click the name** — rename it inline
+- **Type selector** — switch between modulator types at any time
 - **×** — delete (undoable)
 
+### Modulator types
+
+| Type | What it does |
+|---|---|
+| **LFO** | Periodic oscillation — sine, triangle, square, sawtooth, or noise. Controls: Frequency, Amplitude, Phase, Offset, Curve (waveshape roundness). |
+| **Step** | Beat-locked step sequencer. Up to 16 steps; drag each step value up or down. |
+| **Walk** | Random walk with smoothing — wanders continuously between Min and Max. |
+| **Audio** | Reacts to live microphone input. Choose a frequency band (all / low / mid / high). |
+| **Expr** | Write a custom JavaScript formula using `t` (seconds) and `bpm`. |
+| **Track** | Reacts to an audio file you load — same band/smooth/amp controls as Audio. |
+| **Env** | Freeform envelope — place and drag breakpoints on a small canvas. Loops or plays once. |
+| **Device** | Reads a live sensor: mouse position, battery, clock, device orientation, hinge angle, ambient light. |
+
 ---
 
-## Envelope Modulator
+## Envelope modulator
 
-The Env type shows a canvas with draggable breakpoints:
+The Env type shows a small canvas with draggable breakpoints:
 
 - **Click** empty area → add a breakpoint
-- **Drag** a breakpoint → move it
+- **Drag** a breakpoint → reposition it
 - **Double-click** a breakpoint → remove it (minimum 2 points)
-- **SNAP** — snap to 1/8 grid
-- **LOOP** — repeat continuously, or play once
-- **Smooth** slider blends from linear interpolation to Catmull-Rom spline
-- A dashed playhead shows the current position during playback
+- **SNAP** — snap breakpoints to a 1/8 grid
+- **LOOP** — repeat continuously, or play once and hold
+- **Smooth** slider — blend from linear to Catmull-Rom spline interpolation
+- A dashed line shows the current playhead position during playback
 
 ---
 
-## Device / Sensor Modulator
+## Device / Sensor modulator
 
-Reads a live sensor and outputs its value multiplied by Scale.
-
-The live readout above the sliders shows the raw sensor value before scaling.
+Reads a live sensor and multiplies by Scale to produce the output value. The live readout above the sliders shows the raw sensor value (before scaling).
 
 | Sensor | Raw range | Notes |
 |---|---|---|
-| Mouse X / Y | 0–100 | Percentage of window size |
+| Mouse X / Y | 0–100 | Percentage of window width/height |
 | Battery | 0–100 | Battery percentage |
 | Clock | 0–59 | Seconds within the current minute |
-| Orient α | 0–360° | Compass heading (device rotation around Z) |
+| Orient α | 0–360° | Compass heading |
 | Orient β | −180–180° | Front-to-back tilt |
 | Orient γ | −90–90° | Left-to-right tilt |
-| Lid / Hinge | 0–360° | Foldable hinge angle (HingeAngleSensor API); falls back to screen orientation angle |
+| Lid / Hinge | 0–360° | Foldable device hinge angle; falls back to screen orientation angle |
 | Ambient Light | lux | Requires browser support and hardware sensor |
 
-Orientation sensors on iOS require a permission prompt — selecting the sensor type triggers it automatically.
+Orientation sensors on iOS require a permission prompt — selecting the sensor triggers it automatically.
 
 ---
 
-## Bindable Properties
+## Shape bindings
 
-Select a path to see the Bindings table in the Inspector. Drag a slider to set the scale (sensitivity), or double-click to type an exact value.
+Select a shape to open its Bindings table in the Inspector. Each row is one bindable property. Drag the slider in a row to connect the currently active oscillator and set the scale (effect strength). Double-click the slider to type an exact value.
 
 | Property | Effect |
 |---|---|
-| `tx` / `ty` | Translate the entire path |
-| `rotation` | Rotate around centroid |
-| `scaleX` / `scaleY` | Scale around centroid |
-| `fillOpacity` | Fade fill in and out |
+| `tx` / `ty` | Translate horizontally / vertically |
+| `rotation` | Rotate around the shape's centroid |
+| `scaleX` / `scaleY` | Scale around the centroid |
+| `fillOpacity` | Fade the fill in and out |
 | `strokeWidth` | Animate stroke thickness |
-| `fillH/S/L` | Animate fill hue, saturation, lightness |
-| `strokeH/S/L` | Animate stroke hue, saturation, lightness |
+| `fillH/S/L` | Animate fill hue, saturation, or lightness |
+| `strokeH/S/L` | Animate stroke hue, saturation, or lightness |
 
-Select a point to see per-point bindings: `x`, `y`, `handleIn.x/y`, `handleOut.x/y`.
-
----
-
-## Shape Appearance
-
-Select a path and use the **Appearance** section in the Inspector:
-
-- **FILL / STROKE / BOTH** — draw mode
-- Colour picker — base colour (oscillators modulate via HSL deltas on top)
-- **Fill opacity** — base transparency
-- **Stroke width** — base thickness in SVG units
-
-**⬜ WIRE** mode overrides all appearance and shows every path as a 1 px screen-space line regardless of zoom.
-
-Multi-select (Shift+click or rubber band) shows a shared appearance panel for changing fill and stroke across all selected shapes at once.
+Select a point (click an anchor dot) to see per-point bindings: `x`, `y`, `handleIn.x/y`, `handleOut.x/y`.
 
 ---
 
-## File Library
+## Shape appearance
 
-Drop files into the folders below and update `library.json` to make them appear in the **LOAD** dropdown.
+Select a shape and use the **Appearance** section in the Inspector:
 
-```
-sketches/        .osc sketch files  (paths + modulators + bindings)
-svg-library/     .svg shape libraries
-library.json     manifest
-```
+- **FILL / STROKE / BOTH** — which surfaces to draw
+- Colour picker — base colour
+- Fill opacity — base transparency
+- Stroke width — base thickness in SVG units
 
-`library.json` format:
+Oscillator bindings add deltas on top of these base values.
 
-```json
-{
-  "sketches": [
-    { "name": "My sketch", "file": "sketches/my-sketch.osc" }
-  ],
-  "svgs": [
-    { "name": "My shapes", "file": "svg-library/my-shapes.svg" }
-  ]
-}
-```
+**⬜ WIRE** mode shows every path as a 1 px screen-space line at any zoom level, ignoring fill and stroke settings.
+
+**Multi-select** (Shift+click or rubber-band) shows a shared appearance panel so you can change fill colour, stroke colour, opacity, and stroke width across all selected shapes at once.
 
 ---
 
-## Export Options
+## Saving and exporting
 
-| Export | Description |
+| Action | How |
 |---|---|
-| **Static SVG** | Current frame as a flat `.svg` |
-| **Animated SVG (SMIL)** | LFO-driven animations baked as SVG `<animate>` elements |
-| **Save Sketch (.osc)** | Full sketch JSON — reopen with LOAD or IMPORT |
-| **Save State (JSON)** | Same as `.osc`, `.json` extension |
-| **PNG Sequence / MP4…** | Opens the export dialog for a ZIP of frames or WebM video |
+| Save to browser | Press **S**, or click **SAVE** in the toolbar |
+| Load a save | LOAD ▾ → Recent |
+| Export sketch file | EXPORT → Save Sketch (.osc) |
+| Re-import sketch | Drag `.osc` onto the canvas, or IMPORT |
+| Export static SVG | EXPORT → Static SVG |
+| Export animated SVG | EXPORT → Animated SVG (SMIL) — LFO bindings only |
+| Export PNG sequence / video | EXPORT → PNG Sequence / MP4… |
 
-PNG/video export uses [JSZip](https://stuk.github.io/jszip/) from CDN — requires internet access.
-
----
-
-## Undo / Redo
-
-History captures the full state on every structural change: path edits, modulator adds/removes/type changes, binding edits, and appearance changes. Up to 60 steps are kept.
-
-- **Cmd/Ctrl + Z** — undo
-- **Cmd/Ctrl + Shift + Z** or **Cmd/Ctrl + Y** — redo
-- Toolbar **↩ ↪** buttons reflect availability
+PNG and video export use JSZip from CDN and require an internet connection.
 
 ---
 
-## Source Map
+## Adding your own files
+
+Drop files into the folders below — they appear in the LOAD dropdown automatically next time you open it:
 
 ```
-index.html              Shell, toolbar, panels, export dialog
-styles.css              Dark theme (near-black, monospace)
-main.js                 App state, rAF loop, keyboard shortcuts,
-                        import/export, LOAD dropdown, rubber-band selection
-
-modules/
-  PathModel.js          Point, BezierHandle, PathModel
-                        Every animated field has a base* counterpart
-  SVGParser.js          Parse SVG 'd', normalise to M/C/Z, arc→cubic
-  CanvasViewport.js     viewBox pan/zoom, path render, HSL colour
-  PointOverlay.js       Anchor + handle visuals and hit targets
-  OscillatorEngine.js   8 modulator types, LFO curve shaping, audio track,
-                        envelope, device/sensor
-  BindingSystem.js      resetToBase() + applyAll() each frame
-  PathOperations.js     DragController, resample, split, mirror
-  History.js            Full-state 60-step undo/redo
-
-panels/
-  OscillatorPanel.js    Modulator cards, track spectrum visualizer,
-                        envelope canvas editor, device live readout
-  BindingPanel.js       Binding matrix with BoxSliders
-  PathInspector.js      Single / multi-shape inspector
-
-components/
-  BoxSlider.js          Drag fill-in-rect slider; dblclick to type any value
+svg-library/     .svg shape files
+sketches/        .osc sketch files
 ```
 
 ---
 
-## Known Limitations
+## Known limitations
 
-- **Audio track** — AudioContext requires HTTPS or localhost. The spectrum visualizer still animates when audio isn't playing.
-- **PNG/video export** — JSZip loads from CDN; export fails offline.
-- **Microphone** — requires HTTPS or localhost.
-- **Audio buffers** — not saved in `.osc` files; re-import audio each session.
-- **Ambient Light / Hinge sensors** — hardware and browser support varies widely; the card shows "Not supported" or "Permission denied" when unavailable.
-- **Mirror slaves** — share no bindings; geometry syncs from master after binding is applied.
+- AudioContext (Audio, Track modulators) requires HTTPS or localhost.
+- PNG/video export requires an internet connection (JSZip CDN).
+- Microphone access requires HTTPS or localhost.
+- Audio buffers are not saved in `.osc` files — re-import audio each session.
+- Ambient Light and Hinge sensors have limited hardware and browser support.
+- Mirror slave paths share no bindings; geometry syncs from the master after binding is applied.
 
 ---
 
