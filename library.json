@@ -1,0 +1,9 @@
+{
+  "sketches": [
+    { "name": "Starter",    "file": "sketches/starter.osc" }
+  ],
+  "svgs": [
+    { "name": "Base Shapes", "file": "svg-library/base-shapes.svg" },
+    { "name": "Star Logo",   "file": "svg-library/star-logo.svg" }
+  ]
+}

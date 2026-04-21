@@ -13,6 +13,18 @@
   <!-- TOOLBAR -->
   <header id="toolbar">
     <div class="toolbar-group">
+      <div class="dropdown">
+        <button class="btn" id="open-btn">OPEN ▾</button>
+        <div class="dropdown-menu" id="open-menu">
+          <div class="dropdown-section-label">Sketches</div>
+          <div id="open-sketches-list"></div>
+          <div class="dropdown-sep"></div>
+          <div class="dropdown-section-label">SVG Library</div>
+          <div id="open-svgs-list"></div>
+          <div class="dropdown-sep"></div>
+          <button data-action="new-canvas">New Canvas</button>
+        </div>
+      </div>
       <label class="btn" title="Import SVG or .osc file">
         IMPORT
         <input type="file" id="file-input" accept=".svg,.osc,.json" hidden>

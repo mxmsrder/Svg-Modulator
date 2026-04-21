@@ -300,8 +300,10 @@ function tick(timestamp) {
     bindingSys.resetToBase(state.paths);
     bindingSys.applyAll(state.paths, oscEngine.oscillators);
     syncMirrorSlaves(state.paths);
-    oscPanel.tick(state.playback.globalTime);
   }
+
+  // Always tick panel so track/walk visualizers animate even when stopped
+  oscPanel.tick(state.playback.globalTime, state.playback.playing);
 
   viewport.render(state.paths, state.ui.showWireframe);
   overlay.render(state.paths, state.selection, viewport.zoom);
@@ -309,15 +311,99 @@ function tick(timestamp) {
 
 requestAnimationFrame(t => { lastTime = t; requestAnimationFrame(tick); });
 
-// ── Base.svg startup ──────────────────────────────────
+// ── Library / OPEN dropdown ───────────────────────────
 
-async function loadStartupSVG() {
+async function loadLibrary() {
   try {
-    const resp = await fetch('./base.svg');
-    if (resp.ok) { loadSVG(await resp.text()); }
-  } catch(e) { /* silent fail — no base.svg available */ }
+    const resp = await fetch('./library.json');
+    if (!resp.ok) return;
+    const lib = await resp.json();
+
+    const sketchList = document.getElementById('open-sketches-list');
+    const svgList    = document.getElementById('open-svgs-list');
+
+    for (const item of (lib.sketches || [])) {
+      const btn = document.createElement('button');
+      btn.textContent = item.name;
+      btn.dataset.file = item.file;
+      btn.dataset.kind = 'osc';
+      sketchList.appendChild(btn);
+    }
+    for (const item of (lib.svgs || [])) {
+      const btn = document.createElement('button');
+      btn.textContent = item.name;
+      btn.dataset.file = item.file;
+      btn.dataset.kind = 'svg';
+      svgList.appendChild(btn);
+    }
+  } catch(e) { /* library.json not found — ignore */ }
 }
-loadStartupSVG();
+
+async function openLibraryFile(file, kind) {
+  try {
+    const resp = await fetch('./' + file);
+    if (!resp.ok) throw new Error(`${resp.status}`);
+    const text = await resp.text();
+    if (kind === 'osc') {
+      restoreFullState(JSON.parse(text));
+    } else {
+      loadSVG(text);
+    }
+  } catch(e) { alert('Could not open ' + file + ': ' + e.message); }
+}
+
+// OPEN button
+document.getElementById('open-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('open-menu').parentElement.classList.toggle('open');
+});
+
+document.getElementById('open-menu').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-file]');
+  if (btn) {
+    document.getElementById('open-menu').parentElement.classList.remove('open');
+    openLibraryFile(btn.dataset.file, btn.dataset.kind);
+    return;
+  }
+  if (e.target.dataset.action === 'new-canvas') {
+    document.getElementById('open-menu').parentElement.classList.remove('open');
+    const hasContent = state.paths.size > 0 || oscEngine.oscillators.size > 0;
+    if (!hasContent || confirm('Clear the current canvas and start fresh?')) {
+      newCanvas();
+    }
+  }
+});
+
+function newCanvas() {
+  pushHistory();
+  state.paths.clear();
+  oscEngine.oscillators.clear();
+  bindingSys.bindings.clear();
+  state.selection = { pathId: null, pathIds: new Set(), pointIds: new Set(), highlightTarget: null };
+  history._undo = []; history._redo = [];
+  history._updateButtons();
+  viewport.setViewBox({ x: 0, y: 0, w: 500, h: 500 });
+  document.getElementById('drop-hint').classList.remove('hidden');
+  inspector.render();
+  bindingPanel.render();
+  oscPanel.render();
+}
+
+// ── Startup ───────────────────────────────────────────
+
+async function startup() {
+  await loadLibrary();
+  // Load starter sketch; fall back to base.svg
+  try {
+    const resp = await fetch('./sketches/starter.osc');
+    if (resp.ok) { restoreFullState(JSON.parse(await resp.text())); return; }
+  } catch(e) { /* ignore */ }
+  try {
+    const resp = await fetch('./svg-library/base-shapes.svg');
+    if (resp.ok) { loadSVG(await resp.text()); }
+  } catch(e) { /* ignore */ }
+}
+startup();
 
 // ── SVG Import ───────────────────────────────────────
 

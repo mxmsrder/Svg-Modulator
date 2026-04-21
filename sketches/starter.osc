@@ -1,0 +1,40 @@
+{
+  "version": "1.1",
+  "type": "svg-oscillator-sketch",
+  "name": "Starter",
+  "timestamp": "2026-04-21T00:00:00Z",
+  "paths": [],
+  "oscillators": [
+    {
+      "id": "mod-starter-lfo1",
+      "name": "LFO 1",
+      "type": "lfo",
+      "color": "#6c63ff",
+      "enabled": true,
+      "waveform": "sine",
+      "frequency": 0.5,
+      "amplitude": 50,
+      "phase": 0,
+      "offset": 0,
+      "curve": 1,
+      "stepCount": 8,
+      "stepRate": 2,
+      "stepValues": [1, 0.5, 0, -0.5, -1, -0.5, 0, 0.5],
+      "stepAmp": 50,
+      "rwRate": 0.5,
+      "rwSmooth": 0.1,
+      "rwMin": -50,
+      "rwMax": 50,
+      "audioBand": "all",
+      "audioSmooth": 0.8,
+      "audioAmplitude": 100,
+      "expression": "Math.sin(t * 2 * Math.PI) * 50",
+      "trackName": "",
+      "trackBand": "all",
+      "trackSmooth": 0.8,
+      "trackAmplitude": 100
+    }
+  ],
+  "bindings": [],
+  "viewBox": { "x": 0, "y": 0, "w": 500, "h": 500 }
+}

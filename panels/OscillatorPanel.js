@@ -37,14 +37,15 @@ export class OscillatorPanel {
     }
   }
 
-  tick(globalTime) {
+  tick(globalTime, playing = true) {
     for (const osc of this.engine.oscillators.values()) {
-      if (!osc.enabled) continue;
       const card = this._cards.get(osc.id);
       if (!card) continue;
-      if (osc.type === 'lfo')  this._tickWaveform(osc, card);
-      if (osc.type === 'step') this._tickStepPreview(osc, card);
+      if (!osc.enabled) continue;
+      if (osc.type === 'lfo')        this._tickWaveform(osc, card);
+      if (osc.type === 'step')       this._tickStepPreview(osc, card);
       if (osc.type === 'randomwalk') this._tickRandomWalkDisplay(osc, card);
+      if (osc.type === 'track')      this._tickTrackViz(osc, card, globalTime);
     }
   }
 
@@ -505,6 +506,14 @@ export class OscillatorPanel {
   // ── Track (Audio File) ────────────────────────────────
 
   _buildTrack(osc, body, sliders) {
+    // Rekordbox-style spectrum visualizer
+    const vizCanvas = document.createElement('canvas');
+    vizCanvas.className = 'track-viz';
+    vizCanvas.width  = 256;
+    vizCanvas.height = 48;
+    body.appendChild(vizCanvas);
+    this._drawTrackVizIdle(vizCanvas, osc.color);
+
     // Track name / status
     const statusDiv = document.createElement('div');
     statusDiv.className = 'audio-status';
@@ -572,5 +581,74 @@ export class OscillatorPanel {
       onChange: v => { osc.trackAmplitude = v; this.onChange(); },
     });
     body.appendChild(params);
+  }
+
+  // ── Track visualizer ──────────────────────────────────
+
+  _tickTrackViz(osc, card, globalTime) {
+    const canvas = card.body.querySelector('.track-viz');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const BARS = 48;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, W, H);
+
+    let data;
+    if (osc._trackDataArr && osc._trackActive) {
+      // Real frequency data from the analyser
+      data = osc._trackDataArr;
+    } else {
+      // Simulate idle/breathing animation — very low amplitude noise
+      data = new Uint8Array(BARS);
+      const t = globalTime || (performance.now() / 1000);
+      for (let i = 0; i < BARS; i++) {
+        const idle = Math.max(0, Math.sin(t * 0.8 + i * 0.4) * 12 + Math.sin(t * 1.7 + i * 0.9) * 6);
+        data[i] = idle;
+      }
+    }
+
+    const step = Math.max(1, Math.floor(data.length / BARS));
+    const barW = W / BARS;
+
+    for (let b = 0; b < BARS; b++) {
+      // Downsample frequency data to BARS buckets
+      let sum = 0;
+      for (let k = 0; k < step; k++) sum += data[b * step + k] || 0;
+      const norm = (sum / step) / 255; // 0..1
+
+      const barH = Math.max(1, norm * H);
+      const x = b * barW;
+
+      // Colour gradient: teal → yellow → red (Rekordbox style)
+      const r = norm < 0.6 ? Math.floor(norm / 0.6 * 80)  : Math.floor(80  + (norm - 0.6) / 0.4 * 175);
+      const g = norm < 0.5 ? Math.floor(norm / 0.5 * 220) : Math.floor(220 - (norm - 0.5) / 0.5 * 220);
+      const bl= norm < 0.4 ? Math.floor(norm / 0.4 * 180) : Math.floor(180 - (norm - 0.4) / 0.6 * 180);
+      ctx.fillStyle = `rgb(${r},${g},${bl})`;
+      ctx.fillRect(Math.floor(x), H - barH, Math.ceil(barW) - 1, barH);
+
+      // Peak dot
+      if (norm > 0.05) {
+        ctx.fillStyle = `rgba(${r},${g},${bl},0.6)`;
+        ctx.fillRect(Math.floor(x), H - barH - 2, Math.ceil(barW) - 1, 1);
+      }
+    }
+
+    // Playhead / status line at top
+    if (osc._trackActive) {
+      ctx.fillStyle = osc.color + 'cc';
+      ctx.fillRect(0, 0, W, 1);
+    }
+  }
+
+  _drawTrackVizIdle(canvas, color) {
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Draw flat baseline
+    ctx.fillStyle = color + '44';
+    ctx.fillRect(0, canvas.height - 2, canvas.width, 1);
   }
 }
