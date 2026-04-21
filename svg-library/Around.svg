@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30.63 30.75">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #231f20;
+      }
+    </style>
+  </defs>
+  <g id="Layer_1-2" data-name="Layer 1">
+    <g>
+      <g id="_Radial_Repeat_" data-name="&amp;lt;Radial Repeat&amp;gt;">
+        <path class="cls-1" d="M28.17,24.2l-3.7-2.25c-3.38,5.5-15.43,11.1-21.94,1.43h0c4.21,6.97,13.21,9.45,20.42,5.51,2.15-1.18,3.9-2.79,5.22-4.68Z"/>
+      </g>
+      <g id="_Radial_Repeat_-2" data-name="&amp;lt;Radial Repeat&amp;gt;">
+        <path class="cls-1" d="M1.45,22.1l3.8-2.08C2.18,14.34,3.35,1.11,14.98.31h0C6.84.47.2,7.02,0,15.24c-.06,2.45.47,4.78,1.44,6.86Z"/>
+      </g>
+      <g id="_Radial_Repeat_-3" data-name="&amp;lt;Radial Repeat&amp;gt;">
+        <path class="cls-1" d="M16.63,0l-.1,4.33c6.46.18,17.33,7.81,12.2,18.29h0c3.93-7.13,1.58-16.16-5.44-20.44-2.09-1.28-4.37-1.98-6.66-2.18Z"/>
+      </g>
+    </g>
+  </g>
+</svg>
