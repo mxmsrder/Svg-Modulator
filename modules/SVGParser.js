@@ -27,10 +27,10 @@ export function parseSVGString(svgString) {
     const model = parsePathD(d);
     if (!model.points.length) return;
 
-    // Copy style
-    model.fill        = el.getAttribute('fill')         || 'none';
-    model.stroke      = el.getAttribute('stroke')       || '#ffffff';
-    const sw          = parseFloat(el.getAttribute('stroke-width')) || 1;
+    // Copy style — default fill white (visible), stroke none
+    model.fill        = el.getAttribute('fill')   || '#ffffff';
+    model.stroke      = el.getAttribute('stroke') || 'none';
+    const sw          = parseFloat(el.getAttribute('stroke-width')) || 0.05;
     model.strokeWidth     = sw;
     model.baseStrokeWidth = sw;
     const fo          = parseFloat(el.getAttribute('fill-opacity') ?? el.getAttribute('opacity') ?? '1');

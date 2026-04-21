@@ -1,5 +1,5 @@
 // OscillatorEngine.js — Multi-type modulator engine
-// Types: 'lfo' | 'step' | 'randomwalk' | 'audio' | 'expression'
+// Types: 'lfo' | 'step' | 'randomwalk' | 'audio' | 'expression' | 'track'
 // tick(globalTimeSec, dt, bpm) → updates each modulator's currentValue
 
 import { uid } from './PathModel.js';
@@ -28,17 +28,18 @@ function pseudoRandom(n) {
 function lerp(a, b, t) { return a + (b - a) * t; }
 
 export const WAVEFORM_NAMES = Object.keys(WAVEFORMS);
-export const MODULATOR_TYPES = ['lfo', 'step', 'randomwalk', 'audio', 'expression'];
+export const MODULATOR_TYPES = ['lfo', 'step', 'randomwalk', 'audio', 'expression', 'track'];
 
 // ────────────────────────────────────────────────────
 // Modulator (supports all types)
 // ────────────────────────────────────────────────────
 export class Oscillator {
   constructor(params = {}) {
-    this.id    = uid('mod');
-    this.name  = params.name  || 'LFO 1';
-    this.type  = params.type  || 'lfo';    // lfo|step|randomwalk|audio|expression
-    this.color = params.color || randomColor();
+    this.id      = uid('mod');
+    this.name    = params.name    || 'LFO 1';
+    this.type    = params.type    || 'lfo';    // lfo|step|randomwalk|audio|expression|track
+    this.color   = params.color   || randomColor();
+    this.enabled = params.enabled ?? true;
 
     // ── LFO params ──────────────────────────────────
     this.waveform  = params.waveform  || 'sine';
@@ -46,6 +47,8 @@ export class Oscillator {
     this.amplitude = params.amplitude ?? 50;
     this.phase     = params.phase     ?? 0;     // 0..1
     this.offset    = params.offset    ?? 0;
+    // curve: 1 = unchanged, >1 = rounder peaks, <1 = sharper
+    this.curve     = params.curve     ?? 1;
 
     // ── Step sequencer params ────────────────────────
     this.stepCount   = params.stepCount   ?? 8;
@@ -77,6 +80,19 @@ export class Oscillator {
     this._exprFn    = null;
     this._exprError = null;
 
+    // ── Track (audio file) params ────────────────────
+    this.trackName      = params.trackName      || '';
+    this.trackBand      = params.trackBand      ?? 'all'; // 'low'|'mid'|'high'|'all'
+    this.trackSmooth    = params.trackSmooth    ?? 0.8;
+    this.trackAmplitude = params.trackAmplitude ?? 100;
+    this.trackBuffer    = null;    // AudioBuffer — not serialized
+    this._trackCtx      = null;
+    this._trackSource   = null;
+    this._trackAnalyser = null;
+    this._trackDataArr  = null;
+    this._trackActive   = false;
+    this._trackLevel    = 0;
+
     // Runtime output
     this.currentValue = 0;
   }
@@ -86,7 +102,14 @@ export class Oscillator {
   _tickLFO(globalTimeSec) {
     const fn    = WAVEFORMS[this.waveform] || WAVEFORMS.sine;
     const phase = globalTimeSec * this.frequency + this.phase;
-    this.currentValue = this.offset + this.amplitude * fn(phase);
+    let v = this.offset + this.amplitude * fn(phase);
+    // Curve shaping: >1 = rounder, <1 = sharper
+    if (this.curve !== 1 && this.amplitude !== 0) {
+      const norm   = (v - this.offset) / this.amplitude;
+      const shaped = Math.sign(norm) * Math.pow(Math.abs(norm), 1 / Math.max(0.05, this.curve));
+      v = this.offset + shaped * this.amplitude;
+    }
+    this.currentValue = v;
   }
 
   _tickStep(globalTimeSec, bpm) {
@@ -103,7 +126,6 @@ export class Oscillator {
     const maxDelta = this.rwRate * dt * 2;
     this._rwTarget += (Math.random() * 2 - 1) * maxDelta;
     // Bounce off bounds
-    const norm = (this.rwMax - this.rwMin) / 2 || 1;
     if (this._rwTarget > 1)  this._rwTarget =  2 - this._rwTarget;
     if (this._rwTarget < -1) this._rwTarget = -2 - this._rwTarget;
     this._rwTarget = Math.max(-1, Math.min(1, this._rwTarget));
@@ -117,26 +139,37 @@ export class Oscillator {
   }
 
   _tickAudio() {
-    if (!this._audioActive) {
-      this.currentValue = 0;
-      return;
-    }
+    if (!this._audioActive) { this.currentValue = 0; return; }
     if (!this._audioDataArr) return;
     this._audioAnalyser.getByteFrequencyData(this._audioDataArr);
-    const data = this._audioDataArr;
-    const len  = data.length;
+    this.currentValue = this.audioAmplitude * this._readBand(this._audioDataArr, this.audioBand, this._audioLevel, this.audioSmooth);
+    this._audioLevel = this.currentValue / (this.audioAmplitude || 1);
+  }
 
+  _tickTrack() {
+    if (!this._trackActive) { this.currentValue = 0; return; }
+    if (!this._trackDataArr || !this._trackAnalyser) return;
+    this._trackAnalyser.getByteFrequencyData(this._trackDataArr);
+    const level = this._readBandRaw(this._trackDataArr, this.trackBand);
+    this._trackLevel = this._trackLevel * this.trackSmooth + level * (1 - this.trackSmooth);
+    this.currentValue = this._trackLevel * this.trackAmplitude;
+  }
+
+  // Read band average from frequency data array, with smoothing
+  _readBandRaw(data, band) {
+    const len = data.length;
     let start = 0, end = len;
-    if      (this.audioBand === 'low')  { start = 0;        end = Math.floor(len * 0.1); }
-    else if (this.audioBand === 'mid')  { start = Math.floor(len * 0.1); end = Math.floor(len * 0.5); }
-    else if (this.audioBand === 'high') { start = Math.floor(len * 0.5); end = len; }
-
+    if      (band === 'low')  { start = 0;                       end = Math.floor(len * 0.1); }
+    else if (band === 'mid')  { start = Math.floor(len * 0.1);   end = Math.floor(len * 0.5); }
+    else if (band === 'high') { start = Math.floor(len * 0.5);   end = len; }
     let sum = 0;
     for (let i = start; i < end; i++) sum += data[i];
-    const rms = (sum / (end - start)) / 255; // 0..1
+    return (sum / (end - start)) / 255;
+  }
 
-    this._audioLevel = this._audioLevel * this.audioSmooth + rms * (1 - this.audioSmooth);
-    this.currentValue = this._audioLevel * this.audioAmplitude;
+  _readBand(data, band, prevLevel, smooth) {
+    const raw = this._readBandRaw(data, band);
+    return prevLevel * smooth + raw * (1 - smooth);
   }
 
   _tickExpression(globalTimeSec, bpm) {
@@ -164,7 +197,7 @@ export class Oscillator {
   // Invalidate cached expression function when expression text changes
   invalidateExpr() { this._exprFn = null; }
 
-  // Start microphone capture
+  // ── Audio (microphone) ───────────────────────────────
   async startAudio() {
     if (this._audioActive) return;
     try {
@@ -188,6 +221,45 @@ export class Oscillator {
     this._audioAnalyser = null;
     this._audioDataArr  = null;
   }
+
+  // ── Audio track (file) ───────────────────────────────
+  async loadTrack(arrayBuffer) {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this._trackCtx    = ctx;
+    this.trackBuffer  = await ctx.decodeAudioData(arrayBuffer);
+  }
+
+  playTrack(offsetSec = 0) {
+    if (!this.trackBuffer || !this._trackCtx) return;
+    this.stopTrack();
+    const analyser = this._trackCtx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0;
+    const src = this._trackCtx.createBufferSource();
+    src.buffer = this.trackBuffer;
+    src.connect(analyser);
+    analyser.connect(this._trackCtx.destination);
+    const safeOffset = Math.max(0, Math.min(offsetSec, this.trackBuffer.duration));
+    src.start(0, safeOffset);
+    this._trackSource  = src;
+    this._trackAnalyser = analyser;
+    this._trackDataArr  = new Uint8Array(analyser.frequencyBinCount);
+    this._trackActive   = true;
+  }
+
+  stopTrack() {
+    try { this._trackSource?.stop(); } catch(e) { /* already stopped */ }
+    this._trackSource  = null;
+    this._trackActive  = false;
+    this._trackAnalyser = null;
+    this._trackDataArr  = null;
+  }
+
+  disposeTrack() {
+    this.stopTrack();
+    if (this._trackCtx) { this._trackCtx.close().catch(() => {}); this._trackCtx = null; }
+    this.trackBuffer = null;
+  }
 }
 
 // ────────────────────────────────────────────────────
@@ -206,7 +278,7 @@ export class OscillatorEngine {
 
   remove(id) {
     const osc = this.oscillators.get(id);
-    if (osc) osc.stopAudio();
+    if (osc) { osc.stopAudio(); osc.disposeTrack?.(); }
     this.oscillators.delete(id);
   }
 
@@ -215,25 +287,32 @@ export class OscillatorEngine {
   // dt = frame delta in seconds; bpm from playback state
   tick(globalTimeSec, dt = 0, bpm = 120) {
     for (const osc of this.oscillators.values()) {
+      if (!osc.enabled) { osc.currentValue = 0; continue; }
       switch (osc.type) {
         case 'lfo':        osc._tickLFO(globalTimeSec); break;
         case 'step':       osc._tickStep(globalTimeSec, bpm); break;
         case 'randomwalk': osc._tickRandomWalk(dt); break;
         case 'audio':      osc._tickAudio(); break;
         case 'expression': osc._tickExpression(globalTimeSec, bpm); break;
+        case 'track':      osc._tickTrack(); break;
         default:           osc._tickLFO(globalTimeSec);
       }
     }
   }
 
-  // Sample LFO waveform for waveform preview
+  // Sample LFO waveform for waveform preview (applies curve shaping)
   sample(oscId, steps = 64) {
     const osc = this.oscillators.get(oscId);
-    if (!osc) return [];
-    if (osc.type !== 'lfo') return [];
+    if (!osc || osc.type !== 'lfo') return [];
     const fn = WAVEFORMS[osc.waveform] || WAVEFORMS.sine;
     const pts = [];
-    for (let i = 0; i < steps; i++) pts.push(fn(i / steps));
+    for (let i = 0; i < steps; i++) {
+      let v = fn(i / steps);
+      if (osc.curve !== 1) {
+        v = Math.sign(v) * Math.pow(Math.abs(v), 1 / Math.max(0.05, osc.curve));
+      }
+      pts.push(v);
+    }
     return pts;
   }
 

@@ -1,5 +1,5 @@
 // OscillatorPanel.js — Modulator card list UI
-// Supports types: lfo, step, randomwalk, audio, expression
+// Supports types: lfo, step, randomwalk, audio, expression, track
 // Uses BoxSlider for all continuous parameters.
 
 import { WAVEFORM_NAMES, MODULATOR_TYPES } from '../modules/OscillatorEngine.js';
@@ -13,6 +13,7 @@ const TYPE_LABELS = {
   randomwalk: 'Walk',
   audio:      'Audio',
   expression: 'Expr',
+  track:      'Track',
 };
 
 export class OscillatorPanel {
@@ -37,10 +38,12 @@ export class OscillatorPanel {
 
   tick(globalTime) {
     for (const osc of this.engine.oscillators.values()) {
+      if (!osc.enabled) continue;
       const card = this._cards.get(osc.id);
       if (!card) continue;
-      if (osc.type === 'lfo') this._tickWaveform(osc, card);
+      if (osc.type === 'lfo')  this._tickWaveform(osc, card);
       if (osc.type === 'step') this._tickStepPreview(osc, card);
+      if (osc.type === 'randomwalk') this._tickRandomWalkDisplay(osc, card);
     }
   }
 
@@ -49,18 +52,74 @@ export class OscillatorPanel {
   _addCard(osc) {
     const card = document.createElement('div');
     card.className = 'osc-card';
+    if (!osc.enabled) card.classList.add('osc-disabled');
     card.dataset.oscId = osc.id;
 
-    // Header: color dot + name + type selector + delete
+    // Header: enable toggle + color dot + name + type selector + delete
     const header = document.createElement('div');
     header.className = 'osc-card-header';
-    header.innerHTML = `
-      <span class="osc-color-dot" style="background:${osc.color}" title="Click to change color"></span>
-      <span class="osc-name">${osc.name}</span>
-      <select class="osc-type-sel">
-        ${MODULATOR_TYPES.map(t => `<option value="${t}" ${t === osc.type ? 'selected' : ''}>${TYPE_LABELS[t]}</option>`).join('')}
-      </select>
-      <button class="osc-delete" title="Delete">×</button>`;
+
+    // Enable/disable toggle
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'osc-toggle';
+    toggleBtn.title = 'Enable / disable';
+    toggleBtn.textContent = osc.enabled ? '●' : '○';
+    toggleBtn.addEventListener('click', () => {
+      osc.enabled = !osc.enabled;
+      toggleBtn.textContent = osc.enabled ? '●' : '○';
+      card.classList.toggle('osc-disabled', !osc.enabled);
+      this.onChange();
+    });
+    header.appendChild(toggleBtn);
+
+    // Color dot (click to cycle)
+    const colorDot = document.createElement('span');
+    colorDot.className = 'osc-color-dot';
+    colorDot.style.background = osc.color;
+    colorDot.title = 'Click to change color';
+    colorDot.addEventListener('click', () => {
+      const colors = ['#6c63ff','#ff6363','#63ffa0','#ffd163','#63d4ff','#ff63d4','#a0ff63'];
+      const idx = colors.indexOf(osc.color);
+      osc.color = colors[(idx + 1) % colors.length];
+      colorDot.style.background = osc.color;
+      this.onChange();
+    });
+    header.appendChild(colorDot);
+
+    // Name — dblclick to rename inline
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'osc-name';
+    nameSpan.textContent = osc.name;
+    nameSpan.title = 'Double-click to rename';
+    this._attachRename(nameSpan, osc);
+    header.appendChild(nameSpan);
+
+    // Type selector
+    const typeSel = document.createElement('select');
+    typeSel.className = 'osc-type-sel';
+    typeSel.innerHTML = MODULATOR_TYPES.map(t =>
+      `<option value="${t}" ${t === osc.type ? 'selected' : ''}>${TYPE_LABELS[t]}</option>`
+    ).join('');
+    typeSel.addEventListener('change', (e) => {
+      osc.type = e.target.value;
+      this._rebuildBody(osc, body);
+      this.onChange();
+    });
+    header.appendChild(typeSel);
+
+    // Delete button
+    const delBtn = document.createElement('button');
+    delBtn.className = 'osc-delete';
+    delBtn.title = 'Delete';
+    delBtn.textContent = '×';
+    delBtn.addEventListener('click', () => {
+      this.engine.remove(osc.id);
+      card.remove();
+      this._cards.delete(osc.id);
+      this.onChange();
+    });
+    header.appendChild(delBtn);
+
     card.appendChild(header);
 
     // Type-specific body container
@@ -68,34 +127,38 @@ export class OscillatorPanel {
     body.className = 'osc-body';
     card.appendChild(body);
 
-    // Delete
-    header.querySelector('.osc-delete').addEventListener('click', () => {
-      this.engine.remove(osc.id);
-      card.remove();
-      this._cards.delete(osc.id);
-      this.onChange();
-    });
-
-    // Type selector
-    header.querySelector('.osc-type-sel').addEventListener('change', (e) => {
-      osc.type = e.target.value;
-      this._rebuildBody(osc, body);
-      this.onChange();
-    });
-
-    // Color dot click cycles color
-    header.querySelector('.osc-color-dot').addEventListener('click', () => {
-      const colors = ['#6c63ff','#ff6363','#63ffa0','#ffd163','#63d4ff','#ff63d4','#a0ff63'];
-      const idx = colors.indexOf(osc.color);
-      osc.color = colors[(idx + 1) % colors.length];
-      header.querySelector('.osc-color-dot').style.background = osc.color;
-      this.onChange();
-    });
-
     this.listEl.appendChild(card);
     const sliders = {};
     this._cards.set(osc.id, { el: card, body, sliders });
     this._rebuildBody(osc, body);
+  }
+
+  _attachRename(nameSpan, osc) {
+    nameSpan.addEventListener('dblclick', () => {
+      const input = document.createElement('input');
+      input.className = 'osc-name-input';
+      input.value = osc.name;
+      nameSpan.replaceWith(input);
+      input.focus();
+      input.select();
+      const commit = () => {
+        const newName = input.value.trim() || osc.name;
+        osc.name = newName;
+        const newSpan = document.createElement('span');
+        newSpan.className = 'osc-name';
+        newSpan.textContent = osc.name;
+        newSpan.title = 'Double-click to rename';
+        this._attachRename(newSpan, osc);
+        input.replaceWith(newSpan);
+        this.onChange();
+      };
+      input.addEventListener('blur', commit);
+      input.addEventListener('keydown', e => {
+        e.stopPropagation();
+        if (e.key === 'Enter') { e.preventDefault(); commit(); }
+        if (e.key === 'Escape') { input.value = osc.name; commit(); }
+      });
+    });
   }
 
   _rebuildBody(osc, body) {
@@ -110,6 +173,7 @@ export class OscillatorPanel {
       case 'randomwalk': this._buildRandomWalk(osc, body, card.sliders);  break;
       case 'audio':      this._buildAudio(osc, body, card.sliders);       break;
       case 'expression': this._buildExpression(osc, body, card.sliders);  break;
+      case 'track':      this._buildTrack(osc, body, card.sliders);       break;
     }
   }
 
@@ -165,6 +229,11 @@ export class OscillatorPanel {
       color: osc.color,
       onChange: v => { osc.offset = v; this.onChange(); },
     });
+    sliders.curve = new BoxSlider(params, {
+      label: 'Curve', unit: '', min: 0.1, max: 4, step: 0, value: osc.curve,
+      color: osc.color,
+      onChange: v => { osc.curve = v; this._updateWaveformPreview(osc); this.onChange(); },
+    });
     body.appendChild(params);
     this._updateWaveformPreview(osc);
   }
@@ -172,8 +241,7 @@ export class OscillatorPanel {
   _tickWaveform(osc, card) {
     const ph = card.body.querySelector('.osc-playhead');
     if (!ph) return;
-    const phase = (card.el.closest('.osc-card') ?
-      (performance.now() / 1000 * osc.frequency + osc.phase) : 0) % 1;
+    const phase = (performance.now() / 1000 * osc.frequency + osc.phase) % 1;
     ph.setAttribute('x1', (phase * 96).toFixed(1));
     ph.setAttribute('x2', (phase * 96).toFixed(1));
   }
@@ -194,13 +262,11 @@ export class OscillatorPanel {
   // ── Step Sequencer ────────────────────────────────────
 
   _buildStep(osc, body, sliders) {
-    // Step pattern editor
     const patternDiv = document.createElement('div');
     patternDiv.className = 'step-pattern';
     this._renderStepPattern(osc, patternDiv);
     body.appendChild(patternDiv);
 
-    // Controls
     const params = document.createElement('div');
     params.className = 'osc-params';
     sliders.stepCount = new BoxSlider(params, {
@@ -208,7 +274,6 @@ export class OscillatorPanel {
       color: osc.color,
       onChange: v => {
         osc.stepCount = Math.round(v);
-        // Extend or trim stepValues
         while (osc.stepValues.length < osc.stepCount) osc.stepValues.push(0);
         this._renderStepPattern(osc, patternDiv);
         this.onChange();
@@ -233,9 +298,8 @@ export class OscillatorPanel {
     for (let i = 0; i < N; i++) {
       const cell = document.createElement('div');
       cell.className = 'step-cell';
-      const val = osc.stepValues[i] ?? 0;
-      // Height as percentage of positive range
-      const pct  = (val + 1) / 2 * 100; // 0..100
+      const val  = osc.stepValues[i] ?? 0;
+      const pct  = (val + 1) / 2 * 100;
       const fill = document.createElement('div');
       fill.className = 'step-fill';
       fill.style.background = osc.color;
@@ -243,19 +307,16 @@ export class OscillatorPanel {
       fill.style.bottom = '0';
       cell.appendChild(fill);
 
-      // Drag to set step value
-      let dragging = false;
-      let startY = 0;
-      let startVal = 0;
+      let dragging = false, startY = 0, startVal = val;
       cell.addEventListener('pointerdown', e => {
-        dragging = true; startY = e.clientY; startVal = val;
+        dragging = true; startY = e.clientY; startVal = osc.stepValues[i] ?? 0;
         cell.setPointerCapture(e.pointerId);
         e.preventDefault();
       });
       cell.addEventListener('pointermove', e => {
         if (!dragging) return;
         const rect = cell.getBoundingClientRect();
-        const dy = startY - e.clientY;  // up = positive
+        const dy = startY - e.clientY;
         const delta = dy / rect.height * 2;
         const newVal = Math.max(-1, Math.min(1, startVal + delta));
         osc.stepValues[i] = newVal;
@@ -267,19 +328,11 @@ export class OscillatorPanel {
     }
   }
 
-  _tickStepPreview(osc, card) {
-    // Highlight current step
-    const cells = card.body.querySelectorAll('.step-cell');
-    if (!cells.length) return;
-    // Current step is computed externally in engine; just get it from currentValue direction
-    // We can't easily know current step index here without bpm/globalTime
-    // Skip animation for now — the pattern display is static
-  }
+  _tickStepPreview() { /* static display for now */ }
 
   // ── Random Walk ───────────────────────────────────────
 
   _buildRandomWalk(osc, body, sliders) {
-    // Live value display (updates in tick via currentValue)
     const liveDiv = document.createElement('div');
     liveDiv.className = 'osc-live-val';
     liveDiv.textContent = '~';
@@ -308,6 +361,11 @@ export class OscillatorPanel {
       onChange: v => { osc.rwMax = v; this.onChange(); },
     });
     body.appendChild(params);
+  }
+
+  _tickRandomWalkDisplay(osc, card) {
+    const lv = card.body.querySelector('.osc-live-val');
+    if (lv) lv.textContent = osc.currentValue.toFixed(1);
   }
 
   // ── Audio ─────────────────────────────────────────────
@@ -341,7 +399,6 @@ export class OscillatorPanel {
     btnRow.appendChild(startBtn);
     body.appendChild(btnRow);
 
-    // Band selector
     const bandRow = document.createElement('div');
     bandRow.className = 'inspector-row';
     bandRow.innerHTML = `
@@ -398,13 +455,11 @@ export class OscillatorPanel {
     errorDiv.className = 'expr-error';
     body.appendChild(errorDiv);
 
-    // Periodically show expression errors
     const checkError = setInterval(() => {
       if (!body.isConnected) { clearInterval(checkError); return; }
       errorDiv.textContent = osc._exprError || '';
     }, 500);
 
-    // Examples
     const examples = [
       { label: 'Sine wave ×50',       expr: 'Math.sin(t * 2 * Math.PI) * 50' },
       { label: 'Slow wobble',          expr: 'Math.sin(t * 0.5) * 80' },
@@ -442,5 +497,77 @@ export class OscillatorPanel {
     }
     details.appendChild(list);
     body.appendChild(details);
+  }
+
+  // ── Track (Audio File) ────────────────────────────────
+
+  _buildTrack(osc, body, sliders) {
+    // Track name / status
+    const statusDiv = document.createElement('div');
+    statusDiv.className = 'audio-status';
+    statusDiv.textContent = osc.trackName ? `◈ ${osc.trackName}` : '○ No file loaded';
+    body.appendChild(statusDiv);
+
+    // Load file button
+    const loadRow = document.createElement('div');
+    loadRow.className = 'inspector-row';
+    loadRow.style.padding = '4px 0';
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'audio/*';
+    fileInput.style.display = 'none';
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      osc.trackName = file.name.replace(/\.[^.]+$/, '');
+      statusDiv.textContent = `⏳ Loading ${osc.trackName}…`;
+      try {
+        const buf = await file.arrayBuffer();
+        await osc.loadTrack(buf);
+        statusDiv.textContent = `◈ ${osc.trackName}`;
+        this.onChange();
+      } catch(err) {
+        statusDiv.textContent = `✕ Error: ${err.message}`;
+      }
+      e.target.value = '';
+    });
+    const loadBtn = document.createElement('button');
+    loadBtn.className = 'btn btn-sm';
+    loadBtn.style.flex = '1';
+    loadBtn.textContent = 'Load Audio…';
+    loadBtn.addEventListener('click', () => fileInput.click());
+    loadRow.appendChild(fileInput);
+    loadRow.appendChild(loadBtn);
+    body.appendChild(loadRow);
+
+    // Band selector
+    const bandRow = document.createElement('div');
+    bandRow.className = 'inspector-row';
+    bandRow.innerHTML = `
+      <span class="label" style="width:44px;font-size:10px;color:var(--text-dim)">Band</span>
+      <select class="track-band-sel">
+        <option value="all"  ${osc.trackBand==='all'  ? 'selected':''}>All</option>
+        <option value="low"  ${osc.trackBand==='low'  ? 'selected':''}>Low</option>
+        <option value="mid"  ${osc.trackBand==='mid'  ? 'selected':''}>Mid</option>
+        <option value="high" ${osc.trackBand==='high' ? 'selected':''}>High</option>
+      </select>`;
+    bandRow.querySelector('.track-band-sel').addEventListener('change', e => {
+      osc.trackBand = e.target.value; this.onChange();
+    });
+    body.appendChild(bandRow);
+
+    const params = document.createElement('div');
+    params.className = 'osc-params';
+    sliders.trackSmooth = new BoxSlider(params, {
+      label: 'Smooth', unit: '', min: 0, max: 0.99, step: 0, value: osc.trackSmooth,
+      color: osc.color,
+      onChange: v => { osc.trackSmooth = v; this.onChange(); },
+    });
+    sliders.trackAmp = new BoxSlider(params, {
+      label: 'Amp', unit: '', min: 0, max: 500, step: 1, value: osc.trackAmplitude,
+      color: osc.color,
+      onChange: v => { osc.trackAmplitude = v; this.onChange(); },
+    });
+    body.appendChild(params);
   }
 }

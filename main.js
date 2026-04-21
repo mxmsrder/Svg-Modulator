@@ -17,9 +17,9 @@ import { PathInspector }    from './panels/PathInspector.js';
 // ────────────────────────────────────────────────────
 const state = {
   paths:     new Map(),
-  selection: { pathId: null, pointIds: new Set(), highlightTarget: null },
+  selection: { pathId: null, pathIds: new Set(), pointIds: new Set(), highlightTarget: null },
   playback:  { playing: false, bpm: 120, globalTime: 0 },
-  ui:        { showAnchors: true, showHandles: true, showWireframe: false },
+  ui:        { showAnchors: true, showHandles: true, showWireframe: false, motionBlurDecay: 0 },
 };
 
 // ── DOM ─────────────────────────────────────────────
@@ -34,33 +34,13 @@ const oscEngine  = new OscillatorEngine();
 const bindingSys = new BindingSystem();
 const history    = new History(60);
 
-// ── History ─────────────────────────────────────────
+// ── History — snapshots include full state (paths + oscillators + bindings) ──
 
-function snapshotPaths() {
-  return JSON.stringify([...state.paths.entries()].map(([, m]) => serializePath(m)));
+function snapshotAll() {
+  return JSON.stringify(serializeFullState());
 }
 
-function serializePath(m) {
-  return {
-    id: m.id, closed: m.closed, fill: m.fill, stroke: m.stroke,
-    strokeWidth: m.strokeWidth, baseStrokeWidth: m.baseStrokeWidth,
-    fillOpacity: m.fillOpacity, baseFillOpacity: m.baseFillOpacity,
-    tx: m.tx, baseTx: m.baseTx, ty: m.ty, baseTy: m.baseTy,
-    rotation: m.rotation, baseRotation: m.baseRotation,
-    scaleX: m.scaleX, baseScaleX: m.baseScaleX,
-    scaleY: m.scaleY, baseScaleY: m.baseScaleY,
-    selected: m.selected, visible: m.visible,
-    mirrorSlaveId: m.mirrorSlaveId, mirrorAxis: m.mirrorAxis,
-    points: m.points.map(p => ({
-      id: p.id, x: p.x, y: p.y, baseX: p.baseX, baseY: p.baseY, type: p.type,
-      handleIn:  p.handleIn  ? { id: p.handleIn.id,  x: p.handleIn.x,  y: p.handleIn.y,  baseX: p.handleIn.baseX,  baseY: p.handleIn.baseY  } : null,
-      handleOut: p.handleOut ? { id: p.handleOut.id, x: p.handleOut.x, y: p.handleOut.y, baseX: p.handleOut.baseX, baseY: p.handleOut.baseY } : null,
-    })),
-  };
-}
-
-function restoreSnapshot(json) {
-  const data = JSON.parse(json);
+function restorePathsFromData(data) {
   state.paths.clear();
   for (const d of data) {
     const m = new PathModel();
@@ -72,6 +52,12 @@ function restoreSnapshot(json) {
       rotation: d.rotation, baseRotation: d.baseRotation,
       scaleX: d.scaleX, baseScaleX: d.baseScaleX,
       scaleY: d.scaleY, baseScaleY: d.baseScaleY,
+      fillH: d.fillH ?? 0, baseFillH: d.baseFillH ?? 0,
+      fillS: d.fillS ?? 0, baseFillS: d.baseFillS ?? 0,
+      fillL: d.fillL ?? 0, baseFillL: d.baseFillL ?? 0,
+      strokeH: d.strokeH ?? 0, baseStrokeH: d.baseStrokeH ?? 0,
+      strokeS: d.strokeS ?? 0, baseStrokeS: d.baseStrokeS ?? 0,
+      strokeL: d.strokeL ?? 0, baseStrokeL: d.baseStrokeL ?? 0,
       selected: d.selected, visible: d.visible,
       mirrorSlaveId: d.mirrorSlaveId, mirrorAxis: d.mirrorAxis,
     });
@@ -94,42 +80,55 @@ function restoreSnapshot(json) {
   }
 }
 
-function pushHistory() { history.push(snapshotPaths()); }
+function pushHistory() { history.push(snapshotAll()); }
 
 function applyUndo() {
   if (!history.canUndo()) return;
-  const prev = history.undo(snapshotPaths());
-  if (prev) { restoreSnapshot(prev); _afterRestore(); }
+  const prev = history.undo(snapshotAll());
+  if (prev) { restoreFullState(JSON.parse(prev)); _afterRestore(); }
 }
 
 function applyRedo() {
   if (!history.canRedo()) return;
-  const next = history.redo(snapshotPaths());
-  if (next) { restoreSnapshot(next); _afterRestore(); }
+  const next = history.redo(snapshotAll());
+  if (next) { restoreFullState(JSON.parse(next)); _afterRestore(); }
 }
 
 function _afterRestore() {
   if (state.selection.pathId && !state.paths.has(state.selection.pathId)) {
     state.selection.pathId   = null;
+    state.selection.pathIds  = new Set();
     state.selection.pointIds = new Set();
   }
+  renderMultiSelectUI();
   inspector.render();
   bindingPanel.render();
+  oscPanel.render();
 }
 
 // ── Full state save/restore (includes oscillators + bindings) ──
 
 function serializeFullState() {
   return {
+    version: '1.1',
+    type: 'svg-oscillator-sketch',
     paths: [...state.paths.values()].map(serializePath),
     oscillators: [...oscEngine.oscillators.values()].map(o => ({
-      id: o.id, name: o.name, type: o.type,
+      id: o.id, name: o.name, type: o.type, color: o.color, enabled: o.enabled,
+      // LFO
       waveform: o.waveform, frequency: o.frequency, amplitude: o.amplitude,
-      phase: o.phase, offset: o.offset, color: o.color,
-      stepCount: o.stepCount, stepRate: o.stepRate,
-      stepValues: o.stepValues, stepAmp: o.stepAmp,
+      phase: o.phase, offset: o.offset, curve: o.curve,
+      // Step
+      stepCount: o.stepCount, stepRate: o.stepRate, stepValues: o.stepValues, stepAmp: o.stepAmp,
+      // Random walk
       rwRate: o.rwRate, rwSmooth: o.rwSmooth, rwMin: o.rwMin, rwMax: o.rwMax,
+      // Audio
+      audioBand: o.audioBand, audioSmooth: o.audioSmooth, audioAmplitude: o.audioAmplitude,
+      // Expression
       expression: o.expression,
+      // Track
+      trackName: o.trackName, trackBand: o.trackBand,
+      trackSmooth: o.trackSmooth, trackAmplitude: o.trackAmplitude,
     })),
     bindings: [...bindingSys.bindings.values()].map(b => ({
       id: b.id, oscillatorId: b.oscillatorId, target: b.target, scale: b.scale,
@@ -138,20 +137,40 @@ function serializeFullState() {
   };
 }
 
+function serializePath(m) {
+  return {
+    id: m.id, closed: m.closed, fill: m.fill, stroke: m.stroke,
+    strokeWidth: m.strokeWidth, baseStrokeWidth: m.baseStrokeWidth,
+    fillOpacity: m.fillOpacity, baseFillOpacity: m.baseFillOpacity,
+    tx: m.tx, baseTx: m.baseTx, ty: m.ty, baseTy: m.baseTy,
+    rotation: m.rotation, baseRotation: m.baseRotation,
+    scaleX: m.scaleX, baseScaleX: m.baseScaleX,
+    scaleY: m.scaleY, baseScaleY: m.baseScaleY,
+    fillH: m.fillH, baseFillH: m.baseFillH,
+    fillS: m.fillS, baseFillS: m.baseFillS,
+    fillL: m.fillL, baseFillL: m.baseFillL,
+    strokeH: m.strokeH, baseStrokeH: m.baseStrokeH,
+    strokeS: m.strokeS, baseStrokeS: m.baseStrokeS,
+    strokeL: m.strokeL, baseStrokeL: m.baseStrokeL,
+    selected: m.selected, visible: m.visible,
+    mirrorSlaveId: m.mirrorSlaveId, mirrorAxis: m.mirrorAxis,
+    points: m.points.map(p => ({
+      id: p.id, x: p.x, y: p.y, baseX: p.baseX, baseY: p.baseY, type: p.type,
+      handleIn:  p.handleIn  ? { id: p.handleIn.id,  x: p.handleIn.x,  y: p.handleIn.y,  baseX: p.handleIn.baseX,  baseY: p.handleIn.baseY  } : null,
+      handleOut: p.handleOut ? { id: p.handleOut.id, x: p.handleOut.x, y: p.handleOut.y, baseX: p.handleOut.baseX, baseY: p.handleOut.baseY } : null,
+    })),
+  };
+}
+
 function restoreFullState(obj) {
-  // Restore paths
-  if (obj.paths) {
-    restoreSnapshot(JSON.stringify(obj.paths));
-  }
-  // Restore oscillators
+  if (obj.paths) restorePathsFromData(obj.paths);
   if (obj.oscillators) {
     oscEngine.oscillators.clear();
     for (const od of obj.oscillators) {
       const osc = oscEngine.add(od);
-      osc.id = od.id; // preserve IDs
+      osc.id = od.id;
     }
   }
-  // Restore bindings
   if (obj.bindings) {
     bindingSys.bindings.clear();
     for (const bd of obj.bindings) {
@@ -159,12 +178,13 @@ function restoreFullState(obj) {
       b.id = bd.id;
     }
   }
-  // Restore viewBox
   if (obj.viewBox) viewport.setViewBox(obj.viewBox);
 
   state.selection.pathId   = null;
+  state.selection.pathIds  = new Set();
   state.selection.pointIds = new Set();
-  document.getElementById('drop-hint').classList.add('hidden');
+  const hint = document.getElementById('drop-hint');
+  if (hint && state.paths.size > 0) hint.classList.add('hidden');
 
   inspector.render();
   bindingPanel.render();
@@ -214,9 +234,94 @@ const dragCtrl = new DragController(
   pushHistory,
 );
 
+// ── Multi-selection inspector UI ─────────────────────
+
+function renderMultiSelectUI() {
+  const count = state.selection.pathIds.size;
+  const multiEl  = document.getElementById('inspector-multi-sel');
+  const singleEl = document.getElementById('inspector-content');
+  const noSelEl  = document.getElementById('inspector-no-selection');
+
+  if (count > 1) {
+    multiEl.hidden  = false;
+    singleEl.hidden = true;
+    noSelEl.hidden  = true;
+    document.getElementById('multi-sel-label').textContent = `${count} shapes`;
+    document.getElementById('inspector-point-detail').hidden = true;
+  } else if (count === 1) {
+    multiEl.hidden = true;
+    // delegate to single-path inspector
+  } else {
+    multiEl.hidden  = true;
+    singleEl.hidden = true;
+    noSelEl.hidden  = false;
+  }
+}
+
+document.getElementById('multi-fill-color').addEventListener('input', (e) => {
+  for (const id of state.selection.pathIds) {
+    const m = state.paths.get(id);
+    if (m && m.fill !== 'none') m.fill = e.target.value;
+  }
+});
+
+document.getElementById('multi-stroke-color').addEventListener('input', (e) => {
+  for (const id of state.selection.pathIds) {
+    const m = state.paths.get(id);
+    if (m && m.stroke !== 'none') m.stroke = e.target.value;
+  }
+});
+
+document.getElementById('btn-delete-multi').addEventListener('click', () => {
+  if (!state.selection.pathIds.size) return;
+  pushHistory();
+  for (const id of state.selection.pathIds) state.paths.delete(id);
+  clearPathSelection();
+  renderMultiSelectUI();
+  bindingPanel.render();
+});
+
+// ── Motion blur canvas ────────────────────────────────
+
+const mbCanvas = document.getElementById('motion-blur-canvas');
+const mbCtx    = mbCanvas ? mbCanvas.getContext('2d') : null;
+
+if (mbCanvas) {
+  const ro = new ResizeObserver(() => {
+    const r = svgEl.getBoundingClientRect();
+    mbCanvas.width  = r.width  || window.innerWidth;
+    mbCanvas.height = r.height || window.innerHeight;
+    if (mbCtx) { mbCtx.clearRect(0, 0, mbCanvas.width, mbCanvas.height); }
+  });
+  ro.observe(svgEl);
+}
+
+async function renderMotionBlurFrame() {
+  if (!mbCtx || !mbCanvas) return;
+  const decay = state.ui.motionBlurDecay;
+  // Fade previous content
+  mbCtx.fillStyle = `rgba(11,11,11,${1 - decay})`;
+  mbCtx.fillRect(0, 0, mbCanvas.width, mbCanvas.height);
+
+  // Draw current SVG into canvas
+  const clone = svgEl.cloneNode(true);
+  clone.setAttribute('width',  mbCanvas.width);
+  clone.setAttribute('height', mbCanvas.height);
+  const svgStr = new XMLSerializer().serializeToString(clone);
+  const blob   = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+  const url    = URL.createObjectURL(blob);
+  await new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => { mbCtx.drawImage(img, 0, 0); URL.revokeObjectURL(url); resolve(); };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+    img.src = url;
+  });
+}
+
 // ── rAF Loop ─────────────────────────────────────────
 
 let lastTime = 0;
+let _mbFrameCount = 0;
 
 function tick(timestamp) {
   requestAnimationFrame(tick);
@@ -234,9 +339,30 @@ function tick(timestamp) {
 
   viewport.render(state.paths, state.ui.showWireframe);
   overlay.render(state.paths, state.selection, viewport.zoom);
+
+  // Motion blur: render every other frame to keep perf reasonable
+  if (state.ui.motionBlurDecay > 0 && state.playback.playing) {
+    _mbFrameCount++;
+    if (_mbFrameCount % 2 === 0) renderMotionBlurFrame();
+  } else if (mbCtx && state.ui.motionBlurDecay === 0 && _mbFrameCount > 0) {
+    // Clear when turned off
+    mbCtx.clearRect(0, 0, mbCanvas.width, mbCanvas.height);
+    _mbFrameCount = 0;
+  }
 }
 
 requestAnimationFrame(t => { lastTime = t; requestAnimationFrame(tick); });
+
+// ── Base.svg startup ──────────────────────────────────
+
+async function loadStartupSVG() {
+  if (localStorage.getItem('svg-osc-v1')) return; // user has saved state
+  try {
+    const resp = await fetch('./base.svg');
+    if (resp.ok) { loadSVG(await resp.text()); }
+  } catch(e) { /* silent fail — no base.svg available */ }
+}
+loadStartupSVG();
 
 // ── SVG Import ───────────────────────────────────────
 
@@ -247,6 +373,7 @@ function loadSVG(text) {
 
   state.paths.clear();
   state.selection.pathId   = null;
+  state.selection.pathIds  = new Set();
   state.selection.pointIds = new Set();
   bindingSys.bindings.clear();
   history._undo = []; history._redo = [];
@@ -265,13 +392,24 @@ function loadSVG(text) {
   oscPanel.render();
 }
 
-const fileInput = document.getElementById('file-input');
-fileInput.addEventListener('change', (e) => {
-  const file = e.target.files[0];
+function loadFile(file) {
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = ev => loadSVG(ev.target.result);
   reader.readAsText(file);
+  reader.onload = ev => {
+    const text = ev.target.result;
+    if (file.name.endsWith('.osc') || file.name.endsWith('.json')) {
+      try { restoreFullState(JSON.parse(text)); }
+      catch(e) { alert('Could not load .osc file: ' + e.message); }
+    } else {
+      loadSVG(text);
+    }
+  };
+}
+
+const fileInput = document.getElementById('file-input');
+fileInput.addEventListener('change', (e) => {
+  loadFile(e.target.files[0]);
   e.target.value = '';
 });
 
@@ -281,47 +419,141 @@ dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-ove
 dropZone.addEventListener('drop', e => {
   e.preventDefault();
   dropZone.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => loadSVG(ev.target.result);
-  reader.readAsText(file);
+  loadFile(e.dataTransfer.files[0]);
 });
 
 document.getElementById('drop-hint').addEventListener('click', () => fileInput.click());
 
-// ── Path selection ───────────────────────────────────
+// ── Path selection helpers ────────────────────────────
+
+function clearPathSelection() {
+  for (const id of state.selection.pathIds) {
+    const m = state.paths.get(id);
+    if (m) m.selected = false;
+  }
+  state.selection.pathId   = null;
+  state.selection.pathIds  = new Set();
+  state.selection.pointIds = new Set();
+}
+
+// ── Path selection ────────────────────────────────────
 
 svgEl.addEventListener('click', (e) => {
   if (e.target.dataset.role === 'anchor' || e.target.dataset.role === 'handle') return;
+  // Ignore if rubber band was active (movement happened)
+  if (_rbMoved) return;
 
   const pathEl = e.target.closest('[data-path-id]');
   if (pathEl) {
     const pathId = pathEl.dataset.pathId;
     if (!pathId) return;
-    if (state.selection.pathId && state.selection.pathId !== pathId) {
-      const prev = state.paths.get(state.selection.pathId);
-      if (prev) prev.selected = false;
-    }
-    state.selection.pathId   = pathId;
-    state.selection.pointIds = new Set();
     const model = state.paths.get(pathId);
-    if (model) model.selected = true;
-    inspector.render();
+    if (!model) return;
+
+    if (e.shiftKey) {
+      if (state.selection.pathIds.has(pathId)) {
+        state.selection.pathIds.delete(pathId);
+        model.selected = false;
+        state.selection.pathId = [...state.selection.pathIds].at(-1) ?? null;
+      } else {
+        state.selection.pathIds.add(pathId);
+        model.selected = true;
+        state.selection.pathId = pathId;
+      }
+      state.selection.pointIds = new Set();
+    } else {
+      clearPathSelection();
+      state.selection.pathIds.add(pathId);
+      state.selection.pathId = pathId;
+      model.selected = true;
+    }
+    renderMultiSelectUI();
+    if (state.selection.pathIds.size <= 1) { inspector.render(); }
     bindingPanel.render();
     return;
   }
 
   if (e.target === svgEl || e.target === contentG ||
       e.target === overlayG || e.target === interactG) {
-    if (state.selection.pathId) {
-      const prev = state.paths.get(state.selection.pathId);
-      if (prev) prev.selected = false;
+    if (!e.shiftKey) {
+      clearPathSelection();
+      renderMultiSelectUI();
+      inspector.render();
+      bindingPanel.render();
     }
-    state.selection.pathId   = null;
-    state.selection.pointIds = new Set();
-    inspector.render();
+  }
+});
+
+// ── Rubber-band selection ─────────────────────────────
+
+const NS_SVG = 'http://www.w3.org/2000/svg';
+let _rbRect = null;
+let _rbStart = { x: 0, y: 0 };
+let _rbMoved = false;
+
+viewport.onBackgroundPointerDown = (e) => {
+  if (e.button !== 0) return;
+  const pt = viewport.screenToSVG(e.clientX, e.clientY);
+  _rbStart = pt;
+  _rbMoved = false;
+  _rbRect = document.createElementNS(NS_SVG, 'rect');
+  _rbRect.classList.add('rubber-band');
+  _rbRect.setAttribute('vector-effect', 'non-scaling-stroke');
+  interactG.appendChild(_rbRect);
+  svgEl.setPointerCapture(e.pointerId);
+};
+
+viewport.onBackgroundPointerMove = (e) => {
+  if (!_rbRect) return;
+  _rbMoved = true;
+  const pt = viewport.screenToSVG(e.clientX, e.clientY);
+  const x = Math.min(pt.x, _rbStart.x);
+  const y = Math.min(pt.y, _rbStart.y);
+  const w = Math.abs(pt.x - _rbStart.x);
+  const h = Math.abs(pt.y - _rbStart.y);
+  _rbRect.setAttribute('x', x);
+  _rbRect.setAttribute('y', y);
+  _rbRect.setAttribute('width',  w);
+  _rbRect.setAttribute('height', h);
+};
+
+viewport.onBackgroundPointerUp = (e) => {
+  if (!_rbRect) return;
+  const rx = parseFloat(_rbRect.getAttribute('x'));
+  const ry = parseFloat(_rbRect.getAttribute('y'));
+  const rw = parseFloat(_rbRect.getAttribute('width'));
+  const rh = parseFloat(_rbRect.getAttribute('height'));
+  _rbRect.remove();
+  _rbRect = null;
+
+  if (_rbMoved && rw > 2 && rh > 2) {
+    if (!e.shiftKey) clearPathSelection();
+    for (const [id, model] of state.paths) {
+      const bb = model.getBoundingBox();
+      if (bb.x + bb.w >= rx && bb.x <= rx + rw &&
+          bb.y + bb.h >= ry && bb.y <= ry + rh) {
+        state.selection.pathIds.add(id);
+        model.selected = true;
+        state.selection.pathId = id;
+      }
+    }
+    renderMultiSelectUI();
+    if (state.selection.pathIds.size <= 1) inspector.render();
     bindingPanel.render();
+  }
+};
+
+// Space key → pan mode
+document.addEventListener('keydown', (e) => {
+  if (e.key === ' ' && !['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) {
+    viewport.spaceDown = true;
+    svgEl.style.cursor = 'grab';
+  }
+});
+document.addEventListener('keyup', (e) => {
+  if (e.key === ' ') {
+    viewport.spaceDown = false;
+    svgEl.style.cursor = '';
   }
 });
 
@@ -344,16 +576,33 @@ document.getElementById('toggle-wireframe').addEventListener('click', (e) => {
   e.currentTarget.classList.toggle('active', state.ui.showWireframe);
 });
 
-document.getElementById('btn-play').addEventListener('click', () => {
-  state.playback.playing = true;
-  document.getElementById('btn-play').classList.add('active');
+document.getElementById('motion-blur-slider').addEventListener('input', (e) => {
+  state.ui.motionBlurDecay = parseFloat(e.target.value);
+  if (mbCanvas) mbCanvas.style.display = state.ui.motionBlurDecay > 0 ? 'block' : 'none';
 });
 
-document.getElementById('btn-stop').addEventListener('click', () => {
+function startPlayback() {
+  state.playback.playing = true;
+  document.getElementById('btn-play').classList.add('active');
+  // Start any track oscillators from current global time
+  for (const osc of oscEngine.oscillators.values()) {
+    if (osc.type === 'track' && osc.trackBuffer) {
+      osc.playTrack(state.playback.globalTime);
+    }
+  }
+}
+
+function stopPlayback() {
   state.playback.playing = false;
   document.getElementById('btn-play').classList.remove('active');
   bindingSys.resetToBase(state.paths);
-});
+  for (const osc of oscEngine.oscillators.values()) {
+    if (osc.type === 'track') osc.stopTrack();
+  }
+}
+
+document.getElementById('btn-play').addEventListener('click', startPlayback);
+document.getElementById('btn-stop').addEventListener('click', stopPlayback);
 
 document.getElementById('bpm-input').addEventListener('input', (e) => {
   state.playback.bpm = parseFloat(e.target.value) || 120;
@@ -382,7 +631,6 @@ document.getElementById('btn-undo').addEventListener('click', applyUndo);
 document.getElementById('btn-redo').addEventListener('click', applyRedo);
 
 document.addEventListener('keydown', (e) => {
-  // Don't steal keys when user is typing in an input
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
 
   const cmd = e.metaKey || e.ctrlKey;
@@ -394,17 +642,10 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  // Space — toggle play / stop
+  // Space — toggle play / stop (also used as pan modifier — keydown above sets spaceDown)
   if (e.key === ' ') {
     e.preventDefault();
-    if (state.playback.playing) {
-      state.playback.playing = false;
-      document.getElementById('btn-play').classList.remove('active');
-      bindingSys.resetToBase(state.paths);
-    } else {
-      state.playback.playing = true;
-      document.getElementById('btn-play').classList.add('active');
-    }
+    if (state.playback.playing) stopPlayback(); else startPlayback();
     return;
   }
 
@@ -414,29 +655,26 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  // Delete / Backspace — remove selected points or whole shape
+  // Delete / Backspace — remove selected points or selected shapes
   if (e.key === 'Delete' || e.key === 'Backspace') {
     e.preventDefault();
-    const pathId = state.selection.pathId;
-    if (!pathId) return;
-    const model = state.paths.get(pathId);
-    if (!model) return;
-
-    if (state.selection.pointIds.size > 0) {
-      pushHistory();
-      model.points = model.points.filter(pt => !state.selection.pointIds.has(pt.id));
-      state.selection.pointIds = new Set();
-      inspector.render();
-      bindingPanel.render();
-    } else {
-      if (confirm('Delete this shape?')) {
+    if (state.selection.pointIds.size > 0 && state.selection.pathId) {
+      // Remove selected points from primary path
+      const model = state.paths.get(state.selection.pathId);
+      if (model) {
         pushHistory();
-        state.paths.delete(pathId);
-        state.selection.pathId   = null;
+        model.points = model.points.filter(pt => !state.selection.pointIds.has(pt.id));
         state.selection.pointIds = new Set();
         inspector.render();
         bindingPanel.render();
       }
+    } else if (state.selection.pathIds.size > 0) {
+      // Delete all selected paths (no confirm)
+      pushHistory();
+      for (const id of state.selection.pathIds) state.paths.delete(id);
+      clearPathSelection();
+      inspector.render();
+      bindingPanel.render();
     }
   }
 });
@@ -489,6 +727,7 @@ document.getElementById('export-menu').querySelectorAll('button').forEach(btn =>
     if (action === 'export-svg')   exportStaticSVG();
     if (action === 'export-smil')  exportSMIL();
     if (action === 'export-state') exportStateJSON();
+    if (action === 'export-osc')   exportOSC();
     if (action === 'export-anim')  openAnimDialog();
   });
 });
@@ -554,6 +793,12 @@ function exportSMIL() {
 
 function exportStateJSON() {
   downloadText(JSON.stringify(serializeFullState(), null, 2), 'svg-osc-state.json', 'application/json');
+}
+
+function exportOSC() {
+  const data = serializeFullState();
+  data.timestamp = new Date().toISOString();
+  downloadText(JSON.stringify(data, null, 2), 'sketch.osc', 'application/json');
 }
 
 // ── Animation export ─────────────────────────────────

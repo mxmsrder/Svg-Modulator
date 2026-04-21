@@ -67,10 +67,10 @@ export class PathModel {
     this.closed  = false;
 
     // Style — animated fields paired with base values
-    this.fill            = 'none';
-    this.stroke          = '#ffffff';
-    this.strokeWidth     = 1;
-    this.baseStrokeWidth = 1;
+    this.fill            = '#ffffff';
+    this.stroke          = 'none';
+    this.strokeWidth     = 0.05;
+    this.baseStrokeWidth = 0.05;
     this.fillOpacity     = 1;
     this.baseFillOpacity = 1;
 

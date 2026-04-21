@@ -109,32 +109,65 @@ export class CanvasViewport {
     let isPanning = false;
     let startX = 0, startY = 0, startPanX = 0, startPanY = 0;
 
+    // External rubber-band callback — set by main.js
+    // onBackgroundPointerDown(e) → return true to suppress pan
+    this.onBackgroundPointerDown = null;
+    this.onBackgroundPointerMove = null;
+    this.onBackgroundPointerUp   = null;
+
+    // Space-key state (set by main.js keyboard handler)
+    this.spaceDown = false;
+
     svg.addEventListener('pointerdown', (e) => {
       if (e.target.closest('[data-role]')) return;
-      isPanning = true;
-      startX = e.clientX; startY = e.clientY;
-      startPanX = this.panX; startPanY = this.panY;
-      svg.setPointerCapture(e.pointerId);
-      svg.style.cursor = 'grabbing';
+      // If space held → pan regardless
+      if (this.spaceDown) {
+        isPanning = true;
+        startX = e.clientX; startY = e.clientY;
+        startPanX = this.panX; startPanY = this.panY;
+        svg.setPointerCapture(e.pointerId);
+        svg.style.cursor = 'grabbing';
+        return;
+      }
+      // Delegate to rubber-band handler if registered
+      if (this.onBackgroundPointerDown) {
+        this.onBackgroundPointerDown(e);
+      }
     });
+
     svg.addEventListener('pointermove', (e) => {
-      if (!isPanning) return;
-      this.panX = startPanX + (e.clientX - startX);
-      this.panY = startPanY + (e.clientY - startY);
-      this._updateViewBox();
+      if (isPanning) {
+        this.panX = startPanX + (e.clientX - startX);
+        this.panY = startPanY + (e.clientY - startY);
+        this._updateViewBox();
+        return;
+      }
+      if (this.onBackgroundPointerMove) this.onBackgroundPointerMove(e);
     });
-    svg.addEventListener('pointerup',    () => { isPanning = false; svg.style.cursor = ''; });
+
+    svg.addEventListener('pointerup', (e) => {
+      if (isPanning) { isPanning = false; svg.style.cursor = ''; return; }
+      if (this.onBackgroundPointerUp) this.onBackgroundPointerUp(e);
+    });
     svg.addEventListener('pointercancel', () => { isPanning = false; svg.style.cursor = ''; });
 
     svg.addEventListener('wheel', (e) => {
       e.preventDefault();
       const rect = svg.getBoundingClientRect();
       const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-      const factor  = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-      const newZoom = Math.max(0.02, Math.min(100, this.zoom * factor));
-      this.panX = mx - (mx - this.panX) * (newZoom / this.zoom);
-      this.panY = my - (my - this.panY) * (newZoom / this.zoom);
-      this.zoom = newZoom;
+
+      if (e.ctrlKey) {
+        // Pinch-to-zoom (trackpad pinch sends wheel + ctrlKey)
+        const factor  = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+        const newZoom = Math.max(0.02, Math.min(100, this.zoom * factor));
+        this.panX = mx - (mx - this.panX) * (newZoom / this.zoom);
+        this.panY = my - (my - this.panY) * (newZoom / this.zoom);
+        this.zoom = newZoom;
+      } else {
+        // Two-finger scroll → pan
+        this.panX -= e.deltaX;
+        this.panY -= e.deltaY;
+      }
       this._updateViewBox();
     }, { passive: false });
   }
@@ -164,8 +197,9 @@ export class CanvasViewport {
 
         if (showWireframe) {
           el.setAttribute('fill', 'none');
-          el.setAttribute('stroke', applyHSLDelta(model.stroke, model.strokeH, model.strokeS, model.strokeL) || '#888');
-          el.setAttribute('stroke-width', (model.strokeWidth * invZ).toFixed(4));
+          const wfStroke = model.stroke !== 'none' ? applyHSLDelta(model.stroke, model.strokeH, model.strokeS, model.strokeL) : '#888888';
+          el.setAttribute('stroke', wfStroke);
+          el.setAttribute('stroke-width', invZ.toFixed(6)); // always 1px screen-space
           el.setAttribute('fill-opacity', '0');
         } else {
           el.setAttribute('fill',         applyHSLDelta(model.fill,   model.fillH,   model.fillS,   model.fillL));

@@ -26,6 +26,14 @@ export class PathInspector {
     const pathId = this.selection.pathId;
     const model  = pathId ? this.paths.get(pathId) : null;
 
+    // Multi-select handled by renderMultiSelectUI in main.js
+    if ((this.selection.pathIds?.size ?? 0) > 1) {
+      content.hidden = true;
+      noSel.hidden   = true;
+      document.getElementById('inspector-point-detail').hidden = true;
+      return;
+    }
+
     if (!model) {
       content.hidden = true;
       noSel.hidden   = false;
@@ -33,6 +41,7 @@ export class PathInspector {
       return;
     }
 
+    document.getElementById('inspector-multi-sel').hidden = true;
     content.hidden = false;
     noSel.hidden   = true;
 
@@ -224,7 +233,6 @@ export class PathInspector {
     document.getElementById('btn-delete-shape')?.addEventListener('click', () => {
       const pathId = this.selection.pathId;
       if (!pathId) return;
-      if (!confirm('Delete this shape?')) return;
       this.pushHistory?.();
       this.paths.delete(pathId);
       this.selection.pathId   = null;
