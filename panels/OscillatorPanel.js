@@ -17,20 +17,21 @@ const TYPE_LABELS = {
 };
 
 export class OscillatorPanel {
-  constructor(listEl, engine, onChange) {
-    this.listEl   = listEl;
-    this.engine   = engine;
-    this.onChange = onChange;
-    this._cards   = new Map(); // oscId → { el, sliders }
+  constructor(listEl, engine, onChange, pushHistory) {
+    this.listEl       = listEl;
+    this.engine       = engine;
+    this.onChange     = onChange;
+    this.pushHistory  = pushHistory || (() => {});
+    this._cards       = new Map(); // oscId → { el, sliders }
   }
 
   render() {
-    const ids = new Set(this.engine.oscillators.keys());
-    // Remove stale cards
+    // Remove cards whose id is gone OR whose osc object was replaced (e.g. after restore)
     for (const [id, card] of this._cards) {
-      if (!ids.has(id)) { card.el.remove(); this._cards.delete(id); }
+      const live = this.engine.oscillators.get(id);
+      if (!live || live !== card.osc) { card.el.remove(); this._cards.delete(id); }
     }
-    // Add new cards
+    // Add cards for any osc not yet represented
     for (const osc of this.engine.oscillators.values()) {
       if (!this._cards.has(osc.id)) this._addCard(osc);
     }
@@ -101,6 +102,7 @@ export class OscillatorPanel {
       `<option value="${t}" ${t === osc.type ? 'selected' : ''}>${TYPE_LABELS[t]}</option>`
     ).join('');
     typeSel.addEventListener('change', (e) => {
+      this.pushHistory();
       osc.type = e.target.value;
       this._rebuildBody(osc, body);
       this.onChange();
@@ -113,6 +115,7 @@ export class OscillatorPanel {
     delBtn.title = 'Delete';
     delBtn.textContent = '×';
     delBtn.addEventListener('click', () => {
+      this.pushHistory();
       this.engine.remove(osc.id);
       card.remove();
       this._cards.delete(osc.id);
@@ -129,7 +132,7 @@ export class OscillatorPanel {
 
     this.listEl.appendChild(card);
     const sliders = {};
-    this._cards.set(osc.id, { el: card, body, sliders });
+    this._cards.set(osc.id, { el: card, body, sliders, osc });
     this._rebuildBody(osc, body);
   }
 

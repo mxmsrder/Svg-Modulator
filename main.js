@@ -168,7 +168,10 @@ function restoreFullState(obj) {
     oscEngine.oscillators.clear();
     for (const od of obj.oscillators) {
       const osc = oscEngine.add(od);
+      // Re-register under the original id (add() uses a new random uid)
+      oscEngine.oscillators.delete(osc.id);
       osc.id = od.id;
+      oscEngine.oscillators.set(osc.id, osc);
     }
   }
   if (obj.bindings) {
@@ -196,7 +199,8 @@ function restoreFullState(obj) {
 const oscPanel = new OscillatorPanel(
   document.getElementById('osc-list'),
   oscEngine,
-  () => { bindingPanel.render(); }
+  () => { bindingPanel.render(); },
+  pushHistory
 );
 
 const bindingPanel = new BindingPanel(
