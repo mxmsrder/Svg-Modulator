@@ -1,0 +1,280 @@
+{
+  "version": "1.1",
+  "type": "svg-oscillator-sketch",
+  "paths": [
+    {
+      "id": "path-1",
+      "closed": true,
+      "fill": "#ff4013",
+      "stroke": "none",
+      "strokeWidth": 0.05,
+      "baseStrokeWidth": 0.05,
+      "fillOpacity": 1,
+      "baseFillOpacity": 1,
+      "tx": 0,
+      "baseTx": 0,
+      "ty": 0,
+      "baseTy": 0,
+      "rotation": 0,
+      "baseRotation": 0,
+      "scaleX": 1,
+      "baseScaleX": 1,
+      "scaleY": 1,
+      "baseScaleY": 1,
+      "fillH": -35.13417070248481,
+      "baseFillH": 0,
+      "fillS": 0,
+      "baseFillS": 0,
+      "fillL": -18.582187449197882,
+      "baseFillL": 0,
+      "strokeH": 0,
+      "baseStrokeH": 0,
+      "strokeS": 0,
+      "baseStrokeS": 0,
+      "strokeL": 0,
+      "baseStrokeL": 0,
+      "selected": false,
+      "visible": true,
+      "mirrorSlaveId": null,
+      "mirrorAxis": null,
+      "points": [
+        {
+          "id": "pt-2",
+          "x": 250,
+          "y": 184.79012046234558,
+          "baseX": 250,
+          "baseY": 100,
+          "type": "cusp",
+          "handleIn": {
+            "id": "h-16",
+            "x": 250,
+            "y": 100,
+            "baseX": 250,
+            "baseY": 100
+          },
+          "handleOut": {
+            "id": "h-3",
+            "x": 305.23,
+            "y": 100,
+            "baseX": 305.23,
+            "baseY": 100
+          }
+        },
+        {
+          "id": "pt-4",
+          "x": 265.2098795376544,
+          "y": 200,
+          "baseX": 350,
+          "baseY": 200,
+          "type": "symmetric",
+          "handleIn": {
+            "id": "h-5",
+            "x": 350,
+            "y": 144.76999999999998,
+            "baseX": 350,
+            "baseY": 144.76999999999998
+          },
+          "handleOut": {
+            "id": "h-6",
+            "x": 350,
+            "y": 255.23000000000002,
+            "baseX": 350,
+            "baseY": 255.23000000000002
+          }
+        },
+        {
+          "id": "pt-7",
+          "x": 250,
+          "y": 215.20987953765442,
+          "baseX": 250,
+          "baseY": 300,
+          "type": "symmetric",
+          "handleIn": {
+            "id": "h-8",
+            "x": 305.23,
+            "y": 300,
+            "baseX": 305.23,
+            "baseY": 300
+          },
+          "handleOut": {
+            "id": "h-9",
+            "x": 194.76999999999998,
+            "y": 300,
+            "baseX": 194.76999999999998,
+            "baseY": 300
+          }
+        },
+        {
+          "id": "pt-10",
+          "x": 234.79012046234558,
+          "y": 200,
+          "baseX": 150,
+          "baseY": 200,
+          "type": "symmetric",
+          "handleIn": {
+            "id": "h-11",
+            "x": 150,
+            "y": 255.23000000000002,
+            "baseX": 150,
+            "baseY": 255.23000000000002
+          },
+          "handleOut": {
+            "id": "h-12",
+            "x": 150,
+            "y": 144.76999999999998,
+            "baseX": 150,
+            "baseY": 144.76999999999998
+          }
+        },
+        {
+          "id": "pt-13",
+          "x": 250,
+          "y": 184.79012046234558,
+          "baseX": 250,
+          "baseY": 100,
+          "type": "cusp",
+          "handleIn": {
+            "id": "h-14",
+            "x": 194.76999999999998,
+            "y": 100,
+            "baseX": 194.76999999999998,
+            "baseY": 100
+          },
+          "handleOut": {
+            "id": "h-15",
+            "x": 250,
+            "y": 100,
+            "baseX": 250,
+            "baseY": 100
+          }
+        }
+      ]
+    }
+  ],
+  "oscillators": [
+    {
+      "id": "mod-37",
+      "name": "LFO 1",
+      "type": "lfo",
+      "color": "#63d4ff",
+      "enabled": true,
+      "waveform": "sine",
+      "frequency": 0.5158227848101261,
+      "amplitude": 108,
+      "phase": 0,
+      "offset": 19,
+      "curve": 1.09873417721519,
+      "stepCount": 8,
+      "stepRate": 2,
+      "stepValues": [
+        1,
+        0.5,
+        0,
+        -0.5,
+        -1,
+        -0.5,
+        0,
+        0.5
+      ],
+      "stepAmp": 50,
+      "rwRate": 0.5,
+      "rwSmooth": 0.1,
+      "rwMin": -50,
+      "rwMax": 50,
+      "audioBand": "all",
+      "audioSmooth": 0.8,
+      "audioAmplitude": 100,
+      "expression": "Math.sin(t * 2 * Math.PI) * 50",
+      "trackName": "",
+      "trackBand": "all",
+      "trackSmooth": 0.8,
+      "trackAmplitude": 100
+    }
+  ],
+  "bindings": [
+    {
+      "id": "bind-38",
+      "oscillatorId": "mod-37",
+      "target": {
+        "pathId": "path-1",
+        "pointIndex": 1,
+        "handleRole": null,
+        "property": "x"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-39",
+      "oscillatorId": "mod-37",
+      "target": {
+        "pathId": "path-1",
+        "pointIndex": 3,
+        "handleRole": null,
+        "property": "x"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-40",
+      "oscillatorId": "mod-37",
+      "target": {
+        "pathId": "path-1",
+        "pointIndex": 4,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-41",
+      "oscillatorId": "mod-37",
+      "target": {
+        "pathId": "path-1",
+        "pointIndex": 0,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-43",
+      "oscillatorId": "mod-37",
+      "target": {
+        "pathId": "path-1",
+        "pointIndex": 2,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-46",
+      "oscillatorId": "mod-37",
+      "target": {
+        "pathId": "path-1",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "fillL"
+      },
+      "scale": 0.2191551014183314
+    },
+    {
+      "id": "bind-48",
+      "oscillatorId": "mod-37",
+      "target": {
+        "pathId": "path-1",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "fillH"
+      },
+      "scale": 0.41436632606374857
+    }
+  ],
+  "viewBox": {
+    "x": 0,
+    "y": 0,
+    "w": 500,
+    "h": 500
+  },
+  "timestamp": "2026-04-21T10:35:36.791Z"
+}
