@@ -1,5 +1,5 @@
 // OscillatorEngine.js — Multi-type modulator engine
-// Types: 'lfo' | 'step' | 'randomwalk' | 'audio' | 'expression' | 'track'
+// Types: 'lfo' | 'step' | 'randomwalk' | 'audio' | 'expression' | 'track' | 'envelope' | 'device'
 // tick(globalTimeSec, dt, bpm) → updates each modulator's currentValue
 
 import { uid } from './PathModel.js';
@@ -28,7 +28,7 @@ function pseudoRandom(n) {
 function lerp(a, b, t) { return a + (b - a) * t; }
 
 export const WAVEFORM_NAMES = Object.keys(WAVEFORMS);
-export const MODULATOR_TYPES = ['lfo', 'step', 'randomwalk', 'audio', 'expression', 'track'];
+export const MODULATOR_TYPES = ['lfo', 'step', 'randomwalk', 'audio', 'expression', 'track', 'envelope', 'device'];
 
 // ────────────────────────────────────────────────────
 // Modulator (supports all types)
@@ -37,7 +37,7 @@ export class Oscillator {
   constructor(params = {}) {
     this.id      = uid('mod');
     this.name    = params.name    || 'LFO 1';
-    this.type    = params.type    || 'lfo';    // lfo|step|randomwalk|audio|expression|track
+    this.type    = params.type    || 'lfo';    // lfo|step|randomwalk|audio|expression|track|envelope|device
     this.color   = params.color   || randomColor();
     this.enabled = params.enabled ?? true;
 
@@ -85,6 +85,8 @@ export class Oscillator {
     this.trackBand      = params.trackBand      ?? 'all'; // 'low'|'mid'|'high'|'all'
     this.trackSmooth    = params.trackSmooth    ?? 0.8;
     this.trackAmplitude = params.trackAmplitude ?? 100;
+    this.trackMuted     = params.trackMuted     ?? false;
+    this.trackThreshold = params.trackThreshold ?? 0;    // 0=all pass, 1=peaks only
     this.trackBuffer    = null;    // AudioBuffer — not serialized
     this._trackCtx      = null;
     this._trackSource   = null;
@@ -92,6 +94,30 @@ export class Oscillator {
     this._trackDataArr  = null;
     this._trackActive   = false;
     this._trackLevel    = 0;
+
+    // ── Envelope params ──────────────────────────────
+    this.envPoints    = params.envPoints    ?? [{x:0,y:0},{x:0.3,y:1},{x:0.7,y:0.6},{x:1,y:0}];
+    this.envPeriod    = params.envPeriod    ?? 2;      // seconds per cycle
+    this.envAmplitude = params.envAmplitude ?? 50;
+    this.envSmooth    = params.envSmooth    ?? 0;      // 0=linear, 1=cubic-smooth
+    this.envLoop      = params.envLoop      ?? true;
+    this.envSnap      = params.envSnap      ?? false;
+
+    // ── Device sensor params ─────────────────────────
+    this.deviceSensor  = params.deviceSensor  ?? 'battery'; // 'battery'|'mouse-x'|'mouse-y'|'orientation-alpha'|'orientation-beta'|'orientation-gamma'|'light'|'clock'
+    this.deviceScale   = params.deviceScale   ?? 100;
+    this.deviceSmooth  = params.deviceSmooth  ?? 0.1;
+    this._deviceRaw    = 0;
+    this._deviceLevel  = 0;
+    this._batteryMgr   = null;
+    this._lightSensor  = null;
+    this._orientAlpha  = 0;
+    this._orientBeta   = 0;
+    this._orientGamma  = 0;
+    this._mouseX       = 0;  // 0..1 normalized
+    this._mouseY       = 0;  // 0..1 normalized
+    this._deviceOrientHandler  = null;
+    this._deviceMouseHandler   = null;
 
     // Runtime output
     this.currentValue = 0;
@@ -147,12 +173,15 @@ export class Oscillator {
   }
 
   _tickTrack() {
-    if (!this._trackActive) { this.currentValue = 0; return; }
+    if (this.trackMuted || !this._trackActive) { this.currentValue = 0; return; }
     if (!this._trackDataArr || !this._trackAnalyser) return;
     this._trackAnalyser.getByteFrequencyData(this._trackDataArr);
     const level = this._readBandRaw(this._trackDataArr, this.trackBand);
     this._trackLevel = this._trackLevel * this.trackSmooth + level * (1 - this.trackSmooth);
-    this.currentValue = this._trackLevel * this.trackAmplitude;
+    // Threshold: 0 = pass everything, 1 = only peaks (values above threshold)
+    const t   = Math.max(0, Math.min(0.999, this.trackThreshold));
+    const out = t === 0 ? this._trackLevel : Math.max(0, (this._trackLevel - t) / (1 - t));
+    this.currentValue = out * this.trackAmplitude;
   }
 
   // Read band average from frequency data array, with smoothing
@@ -196,6 +225,174 @@ export class Oscillator {
 
   // Invalidate cached expression function when expression text changes
   invalidateExpr() { this._exprFn = null; }
+
+  // ── Envelope ─────────────────────────────────────────
+  _tickEnvelope(globalTimeSec) {
+    const period = this.envPeriod > 0 ? this.envPeriod : 1;
+    let phase;
+    if (this.envLoop) {
+      phase = (globalTimeSec / period) % 1;
+    } else {
+      phase = Math.max(0, Math.min(1, globalTimeSec / period));
+    }
+
+    // Sort points by x
+    const pts = this.envPoints.slice().sort((a, b) => a.x - b.x);
+    if (pts.length === 0) { this.currentValue = 0; return; }
+    if (pts.length === 1) { this.currentValue = pts[0].y * this.envAmplitude; return; }
+
+    // Find surrounding segment
+    let i1 = pts.length - 1;
+    for (let i = 0; i < pts.length - 1; i++) {
+      if (phase <= pts[i + 1].x) { i1 = i + 1; break; }
+    }
+    const i0 = i1 - 1;
+    const p1 = pts[i0];
+    const p2 = pts[i1];
+
+    let y;
+    const dx = p2.x - p1.x;
+    const t  = dx === 0 ? 0 : (phase - p1.x) / dx;
+
+    if (this.envSmooth <= 0) {
+      // Linear interpolation
+      y = lerp(p1.y, p2.y, t);
+    } else {
+      // Catmull-Rom spline blended with linear by envSmooth
+      const p0 = pts[i0 > 0 ? i0 - 1 : 0];
+      const p3 = pts[i1 < pts.length - 1 ? i1 + 1 : pts.length - 1];
+      const tension = 0.5;
+      const t2 = t * t;
+      const t3 = t2 * t;
+      // Catmull-Rom basis
+      const cr = (
+        (-tension * t3 + 2 * tension * t2 - tension * t) * p0.y +
+        ((2 - tension) * t3 + (tension - 3) * t2 + 1) * p1.y +
+        ((tension - 2) * t3 + (3 - 2 * tension) * t2 + tension * t) * p2.y +
+        (tension * t3 - tension * t2) * p3.y
+      );
+      const linear = lerp(p1.y, p2.y, t);
+      y = lerp(linear, cr, this.envSmooth);
+    }
+
+    this.currentValue = y * this.envAmplitude;
+  }
+
+  // ── Device / Sensor ───────────────────────────────────
+  _tickDevice(dt) {
+    // Update raw value from current sensor type
+    switch (this.deviceSensor) {
+      case 'battery':
+        this._deviceRaw = this._batteryMgr?.level ?? 0;
+        break;
+      case 'light':
+        // already updated via AmbientLightSensor 'reading' event
+        break;
+      case 'orientation-alpha':
+        this._deviceRaw = this._orientAlpha / 360;
+        break;
+      case 'orientation-beta':
+        this._deviceRaw = (this._orientBeta + 180) / 360;
+        break;
+      case 'orientation-gamma':
+        this._deviceRaw = (this._orientGamma + 90) / 180;
+        break;
+      case 'mouse-x':
+        this._deviceRaw = this._mouseX;
+        break;
+      case 'mouse-y':
+        this._deviceRaw = this._mouseY;
+        break;
+      case 'clock':
+        this._deviceRaw = (Date.now() % 86400000) / 86400000;
+        break;
+      default:
+        this._deviceRaw = 0;
+    }
+
+    // Apply smoothing
+    const alpha = Math.max(0.001, Math.min(1, this.deviceSmooth));
+    this._deviceLevel = this._deviceLevel * (1 - alpha) + this._deviceRaw * alpha;
+    this.currentValue = this._deviceLevel * this.deviceScale;
+  }
+
+  async initDevice() {
+    switch (this.deviceSensor) {
+      case 'battery': {
+        try {
+          const mgr = await navigator.getBattery?.();
+          if (mgr) {
+            this._batteryMgr = mgr;
+            this._deviceRaw  = mgr.level;
+            mgr.addEventListener('levelchange', () => {
+              this._deviceRaw = mgr.level;
+            });
+          }
+        } catch (e) {
+          console.warn('Battery API unavailable:', e);
+        }
+        break;
+      }
+      case 'light': {
+        try {
+          const Sensor = window.AmbientLightSensor;
+          if (Sensor) {
+            this._lightSensor = new Sensor();
+            this._lightSensor.addEventListener('reading', () => {
+              this._deviceRaw = this._lightSensor.illuminance / 1000;
+            });
+            this._lightSensor.start();
+          }
+        } catch (e) {
+          console.warn('AmbientLightSensor unavailable:', e);
+        }
+        break;
+      }
+      case 'orientation-alpha':
+      case 'orientation-beta':
+      case 'orientation-gamma': {
+        this._deviceOrientHandler = (e) => {
+          this._orientAlpha = e.alpha ?? 0;
+          this._orientBeta  = e.beta  ?? 0;
+          this._orientGamma = e.gamma ?? 0;
+        };
+        window.addEventListener('deviceorientation', this._deviceOrientHandler);
+        break;
+      }
+      case 'mouse-x':
+      case 'mouse-y': {
+        this._deviceMouseHandler = (e) => {
+          this._mouseX = e.clientX / (window.innerWidth  || 1);
+          this._mouseY = e.clientY / (window.innerHeight || 1);
+        };
+        document.addEventListener('mousemove', this._deviceMouseHandler);
+        break;
+      }
+      case 'clock':
+        // no init needed
+        break;
+    }
+  }
+
+  stopDevice() {
+    if (this._deviceOrientHandler) {
+      window.removeEventListener('deviceorientation', this._deviceOrientHandler);
+      this._deviceOrientHandler = null;
+    }
+    if (this._deviceMouseHandler) {
+      document.removeEventListener('mousemove', this._deviceMouseHandler);
+      this._deviceMouseHandler = null;
+    }
+    if (this._lightSensor) {
+      try { this._lightSensor.stop(); } catch (e) { /* ignore */ }
+      this._lightSensor = null;
+    }
+    if (this._batteryMgr) {
+      // BatteryManager doesn't expose removeEventListener in all browsers,
+      // but we clear our reference so we stop reading from it
+      this._batteryMgr = null;
+    }
+  }
 
   // ── Audio (microphone) ───────────────────────────────
   async startAudio() {
@@ -278,7 +475,7 @@ export class OscillatorEngine {
 
   remove(id) {
     const osc = this.oscillators.get(id);
-    if (osc) { osc.stopAudio(); osc.disposeTrack?.(); }
+    if (osc) { osc.stopAudio(); osc.disposeTrack?.(); osc.stopDevice?.(); }
     this.oscillators.delete(id);
   }
 
@@ -295,6 +492,8 @@ export class OscillatorEngine {
         case 'audio':      osc._tickAudio(); break;
         case 'expression': osc._tickExpression(globalTimeSec, bpm); break;
         case 'track':      osc._tickTrack(); break;
+        case 'envelope':   osc._tickEnvelope(globalTimeSec); break;
+        case 'device':     osc._tickDevice(dt); break;
         default:           osc._tickLFO(globalTimeSec);
       }
     }

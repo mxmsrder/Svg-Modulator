@@ -14,6 +14,8 @@ const TYPE_LABELS = {
   audio:      'Audio',
   expression: 'Expr',
   track:      'Track',
+  envelope:   'Env',
+  device:     'Device',
 };
 
 export class OscillatorPanel {
@@ -46,6 +48,8 @@ export class OscillatorPanel {
       if (osc.type === 'step')       this._tickStepPreview(osc, card);
       if (osc.type === 'randomwalk') this._tickRandomWalkDisplay(osc, card);
       if (osc.type === 'track')      this._tickTrackViz(osc, card, globalTime);
+      if (osc.type === 'envelope')   this._tickEnvelopePreview(osc, card, globalTime);
+      if (osc.type === 'device')     this._tickDeviceDisplay(osc, card);
     }
   }
 
@@ -178,6 +182,8 @@ export class OscillatorPanel {
       case 'audio':      this._buildAudio(osc, body, card.sliders);       break;
       case 'expression': this._buildExpression(osc, body, card.sliders);  break;
       case 'track':      this._buildTrack(osc, body, card.sliders);       break;
+      case 'envelope':   this._buildEnvelope(osc, body, card.sliders);    break;
+      case 'device':     this._buildDevice(osc, body, card.sliders);      break;
     }
   }
 
@@ -514,11 +520,29 @@ export class OscillatorPanel {
     body.appendChild(vizCanvas);
     this._drawTrackVizIdle(vizCanvas, osc.color);
 
-    // Track name / status
+    // Status row with mute button
+    const statusRow = document.createElement('div');
+    statusRow.className = 'inspector-row';
+    statusRow.style.gap = '6px';
+
     const statusDiv = document.createElement('div');
     statusDiv.className = 'audio-status';
+    statusDiv.style.flex = '1';
     statusDiv.textContent = osc.trackName ? `◈ ${osc.trackName}` : '○ No file loaded';
-    body.appendChild(statusDiv);
+
+    const muteBtn = document.createElement('button');
+    muteBtn.className = 'btn btn-sm' + (osc.trackMuted ? ' active' : '');
+    muteBtn.textContent = osc.trackMuted ? 'MUTED' : 'MUTE';
+    muteBtn.addEventListener('click', () => {
+      osc.trackMuted = !osc.trackMuted;
+      muteBtn.textContent = osc.trackMuted ? 'MUTED' : 'MUTE';
+      muteBtn.classList.toggle('active', osc.trackMuted);
+      this.onChange();
+    });
+
+    statusRow.appendChild(statusDiv);
+    statusRow.appendChild(muteBtn);
+    body.appendChild(statusRow);
 
     // Load file button
     const loadRow = document.createElement('div');
@@ -579,6 +603,11 @@ export class OscillatorPanel {
       label: 'Amp', unit: '', min: 0, max: 500, step: 1, value: osc.trackAmplitude,
       color: osc.color,
       onChange: v => { osc.trackAmplitude = v; this.onChange(); },
+    });
+    sliders.trackThreshold = new BoxSlider(params, {
+      label: 'Thresh', unit: '', min: 0, max: 1, step: 0, value: osc.trackThreshold,
+      color: osc.color,
+      onChange: v => { osc.trackThreshold = v; this.onChange(); },
     });
     body.appendChild(params);
   }
@@ -650,5 +679,288 @@ export class OscillatorPanel {
     // Draw flat baseline
     ctx.fillStyle = color + '44';
     ctx.fillRect(0, canvas.height - 2, canvas.width, 1);
+  }
+
+  // ── Envelope editor ───────────────────────────────────
+
+  _buildEnvelope(osc, body, sliders) {
+    const canvas = document.createElement('canvas');
+    canvas.className = 'env-canvas';
+    canvas.width  = 200;
+    canvas.height = 72;
+    canvas.style.cursor = 'crosshair';
+    body.appendChild(canvas);
+
+    // SNAP + LOOP toggles
+    const ctrlRow = document.createElement('div');
+    ctrlRow.className = 'osc-wave-btns';
+    ctrlRow.style.marginBottom = '4px';
+
+    const snapBtn = document.createElement('button');
+    snapBtn.textContent = 'SNAP';
+    if (osc.envSnap) snapBtn.classList.add('active');
+    snapBtn.addEventListener('click', () => {
+      osc.envSnap = !osc.envSnap;
+      snapBtn.classList.toggle('active', osc.envSnap);
+      draw();
+      this.onChange();
+    });
+
+    const loopBtn = document.createElement('button');
+    loopBtn.textContent = 'LOOP';
+    if (osc.envLoop) loopBtn.classList.add('active');
+    loopBtn.addEventListener('click', () => {
+      osc.envLoop = !osc.envLoop;
+      loopBtn.classList.toggle('active', osc.envLoop);
+      this.onChange();
+    });
+
+    ctrlRow.appendChild(snapBtn);
+    ctrlRow.appendChild(loopBtn);
+    body.appendChild(ctrlRow);
+
+    const params = document.createElement('div');
+    params.className = 'osc-params';
+    sliders.envPeriod = new BoxSlider(params, {
+      label: 'Period', unit: 's', min: 0.1, max: 60, step: 0, value: osc.envPeriod,
+      color: osc.color,
+      onChange: v => { osc.envPeriod = v; this.onChange(); },
+    });
+    sliders.envAmp = new BoxSlider(params, {
+      label: 'Amp', unit: '', min: 0, max: 500, step: 1, value: osc.envAmplitude,
+      color: osc.color,
+      onChange: v => { osc.envAmplitude = v; this.onChange(); },
+    });
+    sliders.envSmooth = new BoxSlider(params, {
+      label: 'Smooth', unit: '', min: 0, max: 1, step: 0, value: osc.envSmooth,
+      color: osc.color,
+      onChange: v => { osc.envSmooth = v; draw(); this.onChange(); },
+    });
+    body.appendChild(params);
+
+    // ── Canvas drawing ────────────────────────────────
+    const SNAP_N = 8;
+    const PX = 8, PY = 6;
+    const W = canvas.width, H = canvas.height;
+    const cW = W - PX * 2, cH = H - PY * 2;
+
+    function toC(p) {
+      return { x: PX + p.x * cW, y: PY + (1 - p.y) * cH };
+    }
+    function fromC(cx, cy) {
+      return {
+        x: Math.max(0, Math.min(1, (cx - PX) / cW)),
+        y: Math.max(0, Math.min(1, 1 - (cy - PY) / cH)),
+      };
+    }
+    function snapV(v) { return osc.envSnap ? Math.round(v * SNAP_N) / SNAP_N : v; }
+
+    function draw(playPhase) {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(0, 0, W, H);
+
+      if (osc.envSnap) {
+        ctx.strokeStyle = '#1c1c1c';
+        ctx.lineWidth = 0.5;
+        for (let i = 1; i < SNAP_N; i++) {
+          const gx = PX + i / SNAP_N * cW;
+          const gy = PY + i / SNAP_N * cH;
+          ctx.beginPath(); ctx.moveTo(gx, PY); ctx.lineTo(gx, PY + cH); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(PX, gy); ctx.lineTo(PX + cW, gy); ctx.stroke();
+        }
+      }
+
+      const pts = osc.envPoints.slice().sort((a, b) => a.x - b.x);
+
+      if (pts.length >= 2) {
+        ctx.beginPath();
+        ctx.strokeStyle = osc.color;
+        ctx.lineWidth = 1.5;
+        for (let s = 0; s <= cW; s++) {
+          const phase = s / cW;
+          let i1 = pts.length - 1;
+          for (let i = 0; i < pts.length - 1; i++) {
+            if (phase <= pts[i + 1].x) { i1 = i + 1; break; }
+          }
+          const i0 = i1 - 1;
+          const p1 = pts[i0], p2 = pts[i1];
+          const dpx = p2.x - p1.x;
+          const t   = dpx === 0 ? 0 : (phase - p1.x) / dpx;
+          let y;
+          if (osc.envSmooth <= 0) {
+            y = p1.y + (p2.y - p1.y) * t;
+          } else {
+            const p0  = pts[i0 > 0 ? i0 - 1 : 0];
+            const p3  = pts[i1 < pts.length - 1 ? i1 + 1 : pts.length - 1];
+            const ten = 0.5, t2 = t * t, t3 = t2 * t;
+            const cr  = (-ten * t3 + 2 * ten * t2 - ten * t) * p0.y
+              + ((2 - ten) * t3 + (ten - 3) * t2 + 1) * p1.y
+              + ((ten - 2) * t3 + (3 - 2 * ten) * t2 + ten * t) * p2.y
+              + (ten * t3 - ten * t2) * p3.y;
+            y = p1.y + (p2.y - p1.y) * t * (1 - osc.envSmooth) + cr * osc.envSmooth;
+          }
+          const cy2 = PY + (1 - y) * cH;
+          if (s === 0) ctx.moveTo(PX, cy2); else ctx.lineTo(PX + s, cy2);
+        }
+        ctx.stroke();
+      }
+
+      for (const p of osc.envPoints) {
+        const { x: cx, y: cy } = toC(p);
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = osc.color;
+        ctx.fill();
+      }
+
+      if (playPhase !== undefined) {
+        const ph = PX + playPhase * cW;
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 3]);
+        ctx.beginPath(); ctx.moveTo(ph, PY); ctx.lineTo(ph, PY + cH); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    draw();
+    canvas._envDraw = draw;
+
+    // ── Pointer interaction ───────────────────────────
+    let _dragIdx = -1;
+    let _pdX = 0, _pdY = 0;
+
+    canvas.addEventListener('pointerdown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const cx = (e.clientX - rect.left) * W / rect.width;
+      const cy = (e.clientY - rect.top)  * H / rect.height;
+      _pdX = e.clientX; _pdY = e.clientY;
+      _dragIdx = -1;
+      for (let i = 0; i < osc.envPoints.length; i++) {
+        const c = toC(osc.envPoints[i]);
+        if (Math.hypot(cx - c.x, cy - c.y) < 10) { _dragIdx = i; break; }
+      }
+      canvas.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (_dragIdx < 0) return;
+      const rect = canvas.getBoundingClientRect();
+      const cx = (e.clientX - rect.left) * W / rect.width;
+      const cy = (e.clientY - rect.top)  * H / rect.height;
+      const p = fromC(cx, cy);
+      osc.envPoints[_dragIdx].x = snapV(p.x);
+      osc.envPoints[_dragIdx].y = snapV(p.y);
+      draw();
+      this.onChange();
+    });
+
+    canvas.addEventListener('pointerup',     () => { _dragIdx = -1; });
+    canvas.addEventListener('pointercancel', () => { _dragIdx = -1; });
+
+    canvas.addEventListener('click', (e) => {
+      if (Math.hypot(e.clientX - _pdX, e.clientY - _pdY) > 4) return;
+      const rect = canvas.getBoundingClientRect();
+      const cx = (e.clientX - rect.left) * W / rect.width;
+      const cy = (e.clientY - rect.top)  * H / rect.height;
+      for (const p of osc.envPoints) {
+        if (Math.hypot(cx - toC(p).x, cy - toC(p).y) < 10) return;
+      }
+      const p = fromC(cx, cy);
+      osc.envPoints.push({ x: snapV(p.x), y: snapV(p.y) });
+      draw();
+      this.onChange();
+    });
+
+    canvas.addEventListener('dblclick', (e) => {
+      if (osc.envPoints.length <= 2) return;
+      const rect = canvas.getBoundingClientRect();
+      const cx = (e.clientX - rect.left) * W / rect.width;
+      const cy = (e.clientY - rect.top)  * H / rect.height;
+      let nearest = -1, minDist = 12;
+      for (let i = 0; i < osc.envPoints.length; i++) {
+        const c = toC(osc.envPoints[i]);
+        const d = Math.hypot(cx - c.x, cy - c.y);
+        if (d < minDist) { minDist = d; nearest = i; }
+      }
+      if (nearest >= 0) { osc.envPoints.splice(nearest, 1); draw(); this.onChange(); }
+    });
+  }
+
+  _tickEnvelopePreview(osc, card, globalTime) {
+    const canvas = card.body.querySelector('.env-canvas');
+    if (!canvas?._envDraw) return;
+    const period = osc.envPeriod > 0 ? osc.envPeriod : 1;
+    const phase  = osc.envLoop
+      ? (globalTime / period) % 1
+      : Math.max(0, Math.min(1, globalTime / period));
+    canvas._envDraw(phase);
+  }
+
+  // ── Device / Sensor ───────────────────────────────────
+
+  _buildDevice(osc, body, sliders) {
+    const liveDiv = document.createElement('div');
+    liveDiv.className = 'osc-live-val';
+    liveDiv.textContent = '~';
+    body.appendChild(liveDiv);
+
+    const sensorRow = document.createElement('div');
+    sensorRow.className = 'inspector-row';
+    sensorRow.style.paddingBottom = '4px';
+
+    const SENSORS = [
+      ['mouse-x',           'Mouse X'],
+      ['mouse-y',           'Mouse Y'],
+      ['battery',           'Battery %'],
+      ['light',             'Ambient Light'],
+      ['orientation-alpha', 'Orient α'],
+      ['orientation-beta',  'Orient β'],
+      ['orientation-gamma', 'Orient γ'],
+      ['clock',             'Clock'],
+    ];
+    const sel = document.createElement('select');
+    sel.style.flex = '1';
+    for (const [val, label] of SENSORS) {
+      const opt = document.createElement('option');
+      opt.value = val; opt.textContent = label;
+      if (osc.deviceSensor === val) opt.selected = true;
+      sel.appendChild(opt);
+    }
+    sel.addEventListener('change', async (e) => {
+      osc.stopDevice?.();
+      osc.deviceSensor  = e.target.value;
+      osc._deviceRaw    = 0;
+      osc._deviceLevel  = 0;
+      await osc.initDevice?.();
+      this.onChange();
+    });
+    sensorRow.appendChild(sel);
+    body.appendChild(sensorRow);
+
+    const params = document.createElement('div');
+    params.className = 'osc-params';
+    sliders.deviceScale = new BoxSlider(params, {
+      label: 'Scale', unit: '', min: 0, max: 500, step: 1, value: osc.deviceScale,
+      color: osc.color,
+      onChange: v => { osc.deviceScale = v; this.onChange(); },
+    });
+    sliders.deviceSmooth = new BoxSlider(params, {
+      label: 'Smooth', unit: '', min: 0, max: 0.99, step: 0, value: osc.deviceSmooth,
+      color: osc.color,
+      onChange: v => { osc.deviceSmooth = v; this.onChange(); },
+    });
+    body.appendChild(params);
+
+    osc.stopDevice?.();
+    osc.initDevice?.();
+  }
+
+  _tickDeviceDisplay(osc, card) {
+    const lv = card.body.querySelector('.osc-live-val');
+    if (lv) lv.textContent = osc.currentValue.toFixed(1);
   }
 }

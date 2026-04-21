@@ -11,6 +11,7 @@ import { History }          from './modules/History.js';
 import { OscillatorPanel }  from './panels/OscillatorPanel.js';
 import { BindingPanel }     from './panels/BindingPanel.js';
 import { PathInspector }    from './panels/PathInspector.js';
+import { BoxSlider }        from './components/BoxSlider.js';
 
 // ────────────────────────────────────────────────────
 // State
@@ -129,6 +130,12 @@ function serializeFullState() {
       // Track
       trackName: o.trackName, trackBand: o.trackBand,
       trackSmooth: o.trackSmooth, trackAmplitude: o.trackAmplitude,
+      trackMuted: o.trackMuted, trackThreshold: o.trackThreshold,
+      // Envelope
+      envPoints: o.envPoints, envPeriod: o.envPeriod,
+      envAmplitude: o.envAmplitude, envSmooth: o.envSmooth, envLoop: o.envLoop, envSnap: o.envSnap,
+      // Device
+      deviceSensor: o.deviceSensor, deviceScale: o.deviceScale, deviceSmooth: o.deviceSmooth,
     })),
     bindings: [...bindingSys.bindings.values()].map(b => ({
       id: b.id, oscillatorId: b.oscillatorId, target: b.target, scale: b.scale,
@@ -276,6 +283,26 @@ document.getElementById('multi-stroke-color').addEventListener('input', (e) => {
   }
 });
 
+// Multi-select fill opacity + stroke width sliders
+const _multiFillOpSlider = new BoxSlider(document.getElementById('multi-fill-opacity-wrap'), {
+  label: '', unit: '', min: 0, max: 1, step: 0, value: 1, color: '#7b72ff',
+  onChange: v => {
+    for (const id of state.selection.pathIds) {
+      const m = state.paths.get(id);
+      if (m) { m.fillOpacity = v; m.baseFillOpacity = v; }
+    }
+  },
+});
+const _multiStrokeWSlider = new BoxSlider(document.getElementById('multi-stroke-width-wrap'), {
+  label: '', unit: '', min: 0, max: 20, step: 0, value: 1, color: '#7b72ff',
+  onChange: v => {
+    for (const id of state.selection.pathIds) {
+      const m = state.paths.get(id);
+      if (m) { m.strokeWidth = v; m.baseStrokeWidth = v; }
+    }
+  },
+});
+
 document.getElementById('btn-delete-multi').addEventListener('click', () => {
   if (!state.selection.pathIds.size) return;
   pushHistory();
@@ -325,17 +352,25 @@ async function loadLibrary() {
     if (!resp.ok) return;
     const lib = await resp.json();
 
+    // Populate SKETCHES toolbar dropdown
     const skList = document.getElementById('sketches-list');
+    // Populate SVG toolbar dropdown library section
     const svList = document.getElementById('svg-library-list');
+    // Populate LOAD menu sketches panel
+    const lskList = document.getElementById('load-sketches-list');
 
     for (const item of (lib.sketches || [])) {
-      const btn = document.createElement('button');
-      btn.textContent = item.name;
-      btn.dataset.file = item.file;
-      btn.dataset.kind = 'osc';
-      skList.appendChild(btn);
+      for (const el of [skList, lskList]) {
+        if (!el) continue;
+        const btn = document.createElement('button');
+        btn.textContent = item.name;
+        btn.dataset.file = item.file;
+        btn.dataset.kind = 'osc';
+        el.appendChild(btn);
+      }
     }
     for (const item of (lib.svgs || [])) {
+      if (!svList) continue;
       const btn = document.createElement('button');
       btn.textContent = item.name;
       btn.dataset.file = item.file;
@@ -602,15 +637,16 @@ viewport.onBackgroundPointerUp = (e) => {
   }
 };
 
-// Space key → pan mode
+// Alt/Option key → pan mode (Space still only toggles play)
 document.addEventListener('keydown', (e) => {
-  if (e.key === ' ' && !['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) {
+  if (e.key === 'Alt' && !['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) {
+    e.preventDefault(); // prevent browser Alt-menu activation
     viewport.spaceDown = true;
     svgEl.style.cursor = 'grab';
   }
 });
 document.addEventListener('keyup', (e) => {
-  if (e.key === ' ') {
+  if (e.key === 'Alt') {
     viewport.spaceDown = false;
     svgEl.style.cursor = '';
   }
@@ -695,6 +731,14 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); applyUndo(); }
     if (e.key === 'z' &&  e.shiftKey) { e.preventDefault(); applyRedo(); }
     if (e.key === 'y')                 { e.preventDefault(); applyRedo(); }
+    if (e.key === 's')                 { e.preventDefault(); saveSketch(); }
+    return;
+  }
+
+  // S — quick save sketch
+  if (e.key === 's' || e.key === 'S') {
+    e.preventDefault();
+    saveSketch();
     return;
   }
 
@@ -741,27 +785,72 @@ document.getElementById('add-osc-btn').addEventListener('click', () => {
   bindingPanel.render();
 });
 
-// ── Save / Load (localStorage) ───────────────────────
+// ── Save / Load history ───────────────────────────────
 
-document.getElementById('btn-save-local').addEventListener('click', () => {
-  const btn = document.getElementById('btn-save-local');
+const SAVE_KEY = 'svg-osc-saves'; // array of {name, ts, data}
+
+function getSaves() {
+  try { return JSON.parse(localStorage.getItem(SAVE_KEY) || '[]'); } catch { return []; }
+}
+
+function saveSketch(name) {
+  const saves = getSaves();
+  const ts    = Date.now();
+  const label = name || new Date(ts).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  saves.unshift({ name: label, ts, data: serializeFullState() });
+  if (saves.length > 10) saves.length = 10;
   try {
-    localStorage.setItem('svg-osc-v1', JSON.stringify(serializeFullState()));
-    btn.textContent = '✓ SAVED';
-    setTimeout(() => { btn.textContent = 'SAVE'; }, 1500);
-  } catch(e) {
-    alert('Save failed: ' + e.message);
+    localStorage.setItem(SAVE_KEY, JSON.stringify(saves));
+    const btn = document.getElementById('btn-save-local');
+    if (btn) { btn.textContent = '✓'; setTimeout(() => { btn.textContent = 'SAVE'; }, 1000); }
+  } catch(e) { alert('Save failed: ' + e.message); }
+  rebuildLoadMenu();
+}
+
+function rebuildLoadMenu() {
+  const saves   = getSaves();
+  const histEl  = document.getElementById('load-history-list');
+  if (!histEl) return;
+  histEl.innerHTML = '';
+  if (!saves.length) {
+    histEl.innerHTML = '<span class="dropdown-empty">No saves yet</span>';
+    return;
   }
+  for (const s of saves) {
+    const btn = document.createElement('button');
+    btn.textContent = s.name;
+    btn.title = new Date(s.ts).toLocaleString();
+    btn.addEventListener('click', () => {
+      document.getElementById('load-btn').closest('.dropdown').classList.remove('open');
+      try { restoreFullState(s.data); } catch(e) { alert('Load failed'); }
+    });
+    histEl.appendChild(btn);
+  }
+}
+
+document.getElementById('btn-save-local').addEventListener('click', () => saveSketch());
+
+// Load dropdown toggle
+document.getElementById('load-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  rebuildLoadMenu();
+  document.getElementById('load-btn').closest('.dropdown').classList.toggle('open');
 });
 
-document.getElementById('btn-load-local').addEventListener('click', () => {
-  const raw = localStorage.getItem('svg-osc-v1');
-  if (!raw) { alert('No saved state found in browser storage.'); return; }
-  try {
-    restoreFullState(JSON.parse(raw));
-  } catch(e) {
-    alert('Load failed: ' + e.message);
-  }
+// Load menu: shapes + sketches (history handled above)
+document.getElementById('load-shapes-list').querySelectorAll('button[data-shape]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('load-btn').closest('.dropdown').classList.remove('open');
+    const svg = BUILT_IN_SHAPES[btn.dataset.shape];
+    if (svg) loadSVG(svg);
+  });
+});
+
+document.getElementById('load-sketches-list').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-file]');
+  if (!btn) return;
+  document.getElementById('load-btn').closest('.dropdown').classList.remove('open');
+  openLibraryFile(btn.dataset.file, 'osc');
 });
 
 // ── Export ───────────────────────────────────────────

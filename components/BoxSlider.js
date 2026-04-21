@@ -107,16 +107,15 @@ export class BoxSlider {
       this.onChange?.(this.value);
     });
 
-    // Double-click → type a value (fixed-positioned to escape overflow:hidden)
+    // Double-click → type a value (no min/max restriction — allow any number)
     this._track.addEventListener('dblclick', (e) => {
       e.stopPropagation();
       const rect  = this._track.getBoundingClientRect();
       const input = document.createElement('input');
       input.type  = 'number';
       input.value = this.value;
-      input.min   = this.min;
-      input.max   = this.max;
       input.step  = this.step || 'any';
+      // No input.min / input.max — allow negative and out-of-range values
       input.style.cssText = [
         `position:fixed`,
         `left:${rect.left}px`,
@@ -139,7 +138,7 @@ export class BoxSlider {
       const commit = () => {
         const v = parseFloat(input.value);
         if (!isNaN(v)) {
-          this.value = this._clamp(v);
+          this.value = v; // no clamp — respect any typed value
           this._update();
           this.onChange?.(this.value);
         }

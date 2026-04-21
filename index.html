@@ -27,11 +27,36 @@
           <button data-action="export-anim">PNG Sequence / MP4…</button>
         </div>
       </div>
-      <button class="btn btn-sm" id="btn-save-local" title="Save to browser storage">SAVE</button>
-      <button class="btn btn-sm" id="btn-load-local" title="Load from browser storage">LOAD</button>
     </div>
 
     <div class="toolbar-group toolbar-center">
+      <!-- Save / Load / Clear / Undo / Redo -->
+      <button class="btn btn-sm" id="btn-save-local" title="Save to browser (S)">SAVE</button>
+      <div class="dropdown">
+        <button class="btn btn-sm" id="load-btn">LOAD ▾</button>
+        <div class="dropdown-menu load-menu" id="load-menu">
+          <div class="load-col">
+            <div class="dropdown-section-label">Recent</div>
+            <div id="load-history-list"></div>
+          </div>
+          <div class="load-col">
+            <div class="dropdown-section-label">Shapes</div>
+            <div id="load-shapes-list">
+              <button data-shape="circle">Circle</button>
+              <button data-shape="square">Square</button>
+              <button data-shape="triangle">Triangle</button>
+            </div>
+          </div>
+          <div class="load-col">
+            <div class="dropdown-section-label">Sketches</div>
+            <div id="load-sketches-list"></div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-sm" id="btn-clear-canvas">CLEAR</button>
+      <button class="btn btn-sm" id="btn-undo" disabled>↩</button>
+      <button class="btn btn-sm" id="btn-redo" disabled>↪</button>
+      <div class="toolbar-sep"></div>
       <!-- Library shortcuts -->
       <div class="dropdown">
         <button class="btn btn-sm" id="sketches-btn">SKETCHES ▾</button>
@@ -52,15 +77,11 @@
           <button data-shape="base">Base.svg</button>
         </div>
       </div>
-      <button class="btn btn-sm" id="btn-clear-canvas">CLEAR</button>
       <div class="toolbar-sep"></div>
       <!-- View toggles -->
       <button class="btn toggle-btn active" id="toggle-anchors">● PTS</button>
       <button class="btn toggle-btn active" id="toggle-handles">◇ HDL</button>
       <button class="btn toggle-btn" id="toggle-wireframe">⬜ WIRE</button>
-      <div class="toolbar-sep"></div>
-      <button class="btn btn-sm" id="btn-undo" disabled>↩</button>
-      <button class="btn btn-sm" id="btn-redo" disabled>↪</button>
     </div>
 
     <div class="toolbar-group toolbar-right">
@@ -129,10 +150,12 @@
           <div class="app-color-row">
             <span class="app-color-label">FILL</span>
             <input type="color" id="multi-fill-color" value="#ffffff">
+            <div style="flex:1" id="multi-fill-opacity-wrap"></div>
           </div>
           <div class="app-color-row">
             <span class="app-color-label">STROKE</span>
             <input type="color" id="multi-stroke-color" value="#ffffff">
+            <div style="flex:1" id="multi-stroke-width-wrap"></div>
           </div>
         </div>
       </div>

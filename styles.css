@@ -746,3 +746,35 @@ tr + tr > td { border-top: 1px solid var(--bg2); }
 #inspector-multi-sel .app-color-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
 #inspector-multi-sel .app-color-label { font-size: 10px; color: var(--text-dim); width: 42px; flex-shrink: 0; }
 
+/* ── LOAD DROPDOWN (3 columns) ───────────────────────── */
+.dropdown.open .load-menu { display: flex !important; }
+.load-menu {
+  min-width: 380px;
+  max-height: 320px;
+}
+.load-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  border-right: 1px solid var(--bg3);
+  min-width: 0;
+}
+.load-col:last-child { border-right: none; }
+.dropdown-empty {
+  display: block;
+  padding: 6px 12px;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+/* ── ENVELOPE EDITOR CANVAS ──────────────────────────── */
+.env-canvas {
+  display: block;
+  width: 100%;
+  height: 72px;
+  background: #0a0a0a;
+  image-rendering: pixelated;
+  touch-action: none;
+}
+
