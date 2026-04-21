@@ -311,7 +311,13 @@ function tick(timestamp) {
 
 requestAnimationFrame(t => { lastTime = t; requestAnimationFrame(tick); });
 
-// ── Library / OPEN dropdown ───────────────────────────
+// ── Library dropdowns ────────────────────────────────
+
+const BUILT_IN_SHAPES = {
+  circle:   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500"><circle cx="250" cy="250" r="200" fill="#ffffff" stroke="none"/></svg>`,
+  square:   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500"><rect x="75" y="75" width="350" height="350" fill="#ffffff" stroke="none"/></svg>`,
+  triangle: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500"><polygon points="250,50 475,450 25,450" fill="#ffffff" stroke="none"/></svg>`,
+};
 
 async function loadLibrary() {
   try {
@@ -319,59 +325,73 @@ async function loadLibrary() {
     if (!resp.ok) return;
     const lib = await resp.json();
 
-    const sketchList = document.getElementById('open-sketches-list');
-    const svgList    = document.getElementById('open-svgs-list');
+    const skList = document.getElementById('sketches-list');
+    const svList = document.getElementById('svg-library-list');
 
     for (const item of (lib.sketches || [])) {
       const btn = document.createElement('button');
       btn.textContent = item.name;
       btn.dataset.file = item.file;
       btn.dataset.kind = 'osc';
-      sketchList.appendChild(btn);
+      skList.appendChild(btn);
     }
     for (const item of (lib.svgs || [])) {
       const btn = document.createElement('button');
       btn.textContent = item.name;
       btn.dataset.file = item.file;
       btn.dataset.kind = 'svg';
-      svgList.appendChild(btn);
+      svList.appendChild(btn);
     }
-  } catch(e) { /* library.json not found — ignore */ }
+  } catch(e) { /* library.json not found */ }
 }
 
 async function openLibraryFile(file, kind) {
   try {
     const resp = await fetch('./' + file);
-    if (!resp.ok) throw new Error(`${resp.status}`);
+    if (!resp.ok) throw new Error(resp.status);
     const text = await resp.text();
-    if (kind === 'osc') {
-      restoreFullState(JSON.parse(text));
-    } else {
-      loadSVG(text);
-    }
+    if (kind === 'osc') restoreFullState(JSON.parse(text));
+    else loadSVG(text);
   } catch(e) { alert('Could not open ' + file + ': ' + e.message); }
 }
 
-// OPEN button
-document.getElementById('open-btn').addEventListener('click', (e) => {
+// SKETCHES dropdown
+document.getElementById('sketches-btn').addEventListener('click', (e) => {
   e.stopPropagation();
-  document.getElementById('open-menu').parentElement.classList.toggle('open');
+  document.getElementById('sketches-btn').closest('.dropdown').classList.toggle('open');
+});
+document.getElementById('sketches-menu').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-file]');
+  if (!btn) return;
+  btn.closest('.dropdown').classList.remove('open');
+  openLibraryFile(btn.dataset.file, btn.dataset.kind);
 });
 
-document.getElementById('open-menu').addEventListener('click', (e) => {
-  const btn = e.target.closest('button[data-file]');
-  if (btn) {
-    document.getElementById('open-menu').parentElement.classList.remove('open');
-    openLibraryFile(btn.dataset.file, btn.dataset.kind);
-    return;
-  }
-  if (e.target.dataset.action === 'new-canvas') {
-    document.getElementById('open-menu').parentElement.classList.remove('open');
-    const hasContent = state.paths.size > 0 || oscEngine.oscillators.size > 0;
-    if (!hasContent || confirm('Clear the current canvas and start fresh?')) {
-      newCanvas();
+// SVG dropdown
+document.getElementById('svg-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('svg-btn').closest('.dropdown').classList.toggle('open');
+});
+document.getElementById('svg-menu').addEventListener('click', async (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  btn.closest('.dropdown').classList.remove('open');
+  if (btn.dataset.file) {
+    openLibraryFile(btn.dataset.file, 'svg');
+  } else if (btn.dataset.shape) {
+    if (btn.dataset.shape === 'base') {
+      openLibraryFile('svg-library/base-shapes.svg', 'svg');
+    } else {
+      const svg = BUILT_IN_SHAPES[btn.dataset.shape];
+      if (svg) loadSVG(svg);
     }
   }
+});
+
+// CLEAR button
+document.getElementById('btn-clear-canvas').addEventListener('click', () => {
+  const hasContent = state.paths.size > 0 || oscEngine.oscillators.size > 0;
+  if (!hasContent || confirm('Clear the canvas?')) newCanvas();
 });
 
 function newCanvas() {
@@ -392,12 +412,10 @@ function newCanvas() {
 // ── Startup ───────────────────────────────────────────
 
 async function startup() {
+  // Let the first frame render before loading content
+  await new Promise(r => requestAnimationFrame(r));
   await loadLibrary();
-  // Load starter sketch; fall back to base.svg
-  try {
-    const resp = await fetch('./sketches/starter.osc');
-    if (resp.ok) { restoreFullState(JSON.parse(await resp.text())); return; }
-  } catch(e) { /* ignore */ }
+  // Load base shapes (no LFO clutter at startup)
   try {
     const resp = await fetch('./svg-library/base-shapes.svg');
     if (resp.ok) { loadSVG(await resp.text()); }
@@ -620,25 +638,27 @@ document.getElementById('toggle-wireframe').addEventListener('click', (e) => {
 
 function startPlayback() {
   state.playback.playing = true;
-  document.getElementById('btn-play').classList.add('active');
-  // Start any track oscillators from current global time
+  const btn = document.getElementById('btn-play');
+  btn.classList.add('active');
+  btn.textContent = '■ STOP';
   for (const osc of oscEngine.oscillators.values()) {
-    if (osc.type === 'track' && osc.trackBuffer) {
-      osc.playTrack(state.playback.globalTime);
-    }
+    if (osc.type === 'track' && osc.trackBuffer) osc.playTrack(state.playback.globalTime);
   }
 }
 
 function stopPlayback() {
   state.playback.playing = false;
-  document.getElementById('btn-play').classList.remove('active');
+  const btn = document.getElementById('btn-play');
+  btn.classList.remove('active');
+  btn.textContent = '▶ PLAY';
   for (const osc of oscEngine.oscillators.values()) {
     if (osc.type === 'track') osc.stopTrack();
   }
 }
 
-document.getElementById('btn-play').addEventListener('click', startPlayback);
-document.getElementById('btn-stop').addEventListener('click', stopPlayback);
+document.getElementById('btn-play').addEventListener('click', () => {
+  if (state.playback.playing) stopPlayback(); else startPlayback();
+});
 
 document.getElementById('bpm-input').addEventListener('input', (e) => {
   state.playback.bpm = parseFloat(e.target.value) || 120;

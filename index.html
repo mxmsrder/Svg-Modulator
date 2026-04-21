@@ -13,18 +13,6 @@
   <!-- TOOLBAR -->
   <header id="toolbar">
     <div class="toolbar-group">
-      <div class="dropdown">
-        <button class="btn" id="open-btn">OPEN ▾</button>
-        <div class="dropdown-menu" id="open-menu">
-          <div class="dropdown-section-label">Sketches</div>
-          <div id="open-sketches-list"></div>
-          <div class="dropdown-sep"></div>
-          <div class="dropdown-section-label">SVG Library</div>
-          <div id="open-svgs-list"></div>
-          <div class="dropdown-sep"></div>
-          <button data-action="new-canvas">New Canvas</button>
-        </div>
-      </div>
       <label class="btn" title="Import SVG or .osc file">
         IMPORT
         <input type="file" id="file-input" accept=".svg,.osc,.json" hidden>
@@ -44,6 +32,29 @@
     </div>
 
     <div class="toolbar-group toolbar-center">
+      <!-- Library shortcuts -->
+      <div class="dropdown">
+        <button class="btn btn-sm" id="sketches-btn">SKETCHES ▾</button>
+        <div class="dropdown-menu" id="sketches-menu">
+          <div id="sketches-list"></div>
+        </div>
+      </div>
+      <div class="dropdown">
+        <button class="btn btn-sm" id="svg-btn">SVG ▾</button>
+        <div class="dropdown-menu" id="svg-menu">
+          <div class="dropdown-section-label">Library</div>
+          <div id="svg-library-list"></div>
+          <div class="dropdown-sep"></div>
+          <div class="dropdown-section-label">Simple Shapes</div>
+          <button data-shape="circle">Circle</button>
+          <button data-shape="square">Square</button>
+          <button data-shape="triangle">Triangle</button>
+          <button data-shape="base">Base.svg</button>
+        </div>
+      </div>
+      <button class="btn btn-sm" id="btn-clear-canvas">CLEAR</button>
+      <div class="toolbar-sep"></div>
+      <!-- View toggles -->
       <button class="btn toggle-btn active" id="toggle-anchors">● PTS</button>
       <button class="btn toggle-btn active" id="toggle-handles">◇ HDL</button>
       <button class="btn toggle-btn" id="toggle-wireframe">⬜ WIRE</button>
@@ -61,7 +72,6 @@
       <button class="btn btn-sm" id="btn-zoom-fit">FIT</button>
       <div class="toolbar-sep"></div>
       <button class="btn btn-play" id="btn-play">▶ PLAY</button>
-      <button class="btn btn-sm" id="btn-stop">■ STOP</button>
     </div>
   </header>
 
