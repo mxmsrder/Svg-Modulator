@@ -19,7 +19,7 @@ const state = {
   paths:     new Map(),
   selection: { pathId: null, pathIds: new Set(), pointIds: new Set(), highlightTarget: null },
   playback:  { playing: false, bpm: 120, globalTime: 0 },
-  ui:        { showAnchors: true, showHandles: true, showWireframe: false, motionBlurDecay: 0 },
+  ui:        { showAnchors: true, showHandles: true, showWireframe: false },
 };
 
 // ── DOM ─────────────────────────────────────────────
@@ -281,47 +281,9 @@ document.getElementById('btn-delete-multi').addEventListener('click', () => {
   bindingPanel.render();
 });
 
-// ── Motion blur canvas ────────────────────────────────
-
-const mbCanvas = document.getElementById('motion-blur-canvas');
-const mbCtx    = mbCanvas ? mbCanvas.getContext('2d') : null;
-
-if (mbCanvas) {
-  const ro = new ResizeObserver(() => {
-    const r = svgEl.getBoundingClientRect();
-    mbCanvas.width  = r.width  || window.innerWidth;
-    mbCanvas.height = r.height || window.innerHeight;
-    if (mbCtx) { mbCtx.clearRect(0, 0, mbCanvas.width, mbCanvas.height); }
-  });
-  ro.observe(svgEl);
-}
-
-async function renderMotionBlurFrame() {
-  if (!mbCtx || !mbCanvas) return;
-  const decay = state.ui.motionBlurDecay;
-  // Fade previous content
-  mbCtx.fillStyle = `rgba(11,11,11,${1 - decay})`;
-  mbCtx.fillRect(0, 0, mbCanvas.width, mbCanvas.height);
-
-  // Draw current SVG into canvas
-  const clone = svgEl.cloneNode(true);
-  clone.setAttribute('width',  mbCanvas.width);
-  clone.setAttribute('height', mbCanvas.height);
-  const svgStr = new XMLSerializer().serializeToString(clone);
-  const blob   = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
-  const url    = URL.createObjectURL(blob);
-  await new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => { mbCtx.drawImage(img, 0, 0); URL.revokeObjectURL(url); resolve(); };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(); };
-    img.src = url;
-  });
-}
-
 // ── rAF Loop ─────────────────────────────────────────
 
 let lastTime = 0;
-let _mbFrameCount = 0;
 
 function tick(timestamp) {
   requestAnimationFrame(tick);
@@ -339,16 +301,6 @@ function tick(timestamp) {
 
   viewport.render(state.paths, state.ui.showWireframe);
   overlay.render(state.paths, state.selection, viewport.zoom);
-
-  // Motion blur: render every other frame to keep perf reasonable
-  if (state.ui.motionBlurDecay > 0 && state.playback.playing) {
-    _mbFrameCount++;
-    if (_mbFrameCount % 2 === 0) renderMotionBlurFrame();
-  } else if (mbCtx && state.ui.motionBlurDecay === 0 && _mbFrameCount > 0) {
-    // Clear when turned off
-    mbCtx.clearRect(0, 0, mbCanvas.width, mbCanvas.height);
-    _mbFrameCount = 0;
-  }
 }
 
 requestAnimationFrame(t => { lastTime = t; requestAnimationFrame(tick); });
@@ -356,7 +308,6 @@ requestAnimationFrame(t => { lastTime = t; requestAnimationFrame(tick); });
 // ── Base.svg startup ──────────────────────────────────
 
 async function loadStartupSVG() {
-  if (localStorage.getItem('svg-osc-v1')) return; // user has saved state
   try {
     const resp = await fetch('./base.svg');
     if (resp.ok) { loadSVG(await resp.text()); }
@@ -576,10 +527,6 @@ document.getElementById('toggle-wireframe').addEventListener('click', (e) => {
   e.currentTarget.classList.toggle('active', state.ui.showWireframe);
 });
 
-document.getElementById('motion-blur-slider').addEventListener('input', (e) => {
-  state.ui.motionBlurDecay = parseFloat(e.target.value);
-  if (mbCanvas) mbCanvas.style.display = state.ui.motionBlurDecay > 0 ? 'block' : 'none';
-});
 
 function startPlayback() {
   state.playback.playing = true;

@@ -36,9 +36,6 @@
       <button class="btn toggle-btn active" id="toggle-handles">◇ HDL</button>
       <button class="btn toggle-btn" id="toggle-wireframe">⬜ WIRE</button>
       <div class="toolbar-sep"></div>
-      <span class="toolbar-label" title="Motion blur decay (0=off, 0.9=heavy)">BLUR</span>
-      <input type="range" id="motion-blur-slider" min="0" max="0.95" step="0.05" value="0" class="blur-slider" title="Motion blur decay">
-      <div class="toolbar-sep"></div>
       <button class="btn btn-sm" id="btn-undo" disabled>↩</button>
       <button class="btn btn-sm" id="btn-redo" disabled>↪</button>
     </div>
@@ -77,8 +74,6 @@
           <p>DROP SVG HERE</p>
           <p class="sub">or click to browse</p>
         </div>
-        <!-- Motion blur accumulation canvas (sits behind SVG) -->
-        <canvas id="motion-blur-canvas"></canvas>
         <svg id="editor-svg" xmlns="http://www.w3.org/2000/svg">
           <g id="svg-content-group"></g>
           <g id="overlay-group" style="pointer-events:none"></g>
