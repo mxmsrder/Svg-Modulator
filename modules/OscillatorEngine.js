@@ -104,20 +104,24 @@ export class Oscillator {
     this.envSnap      = params.envSnap      ?? false;
 
     // ── Device sensor params ─────────────────────────
-    this.deviceSensor  = params.deviceSensor  ?? 'battery'; // 'battery'|'mouse-x'|'mouse-y'|'orientation-alpha'|'orientation-beta'|'orientation-gamma'|'light'|'clock'
-    this.deviceScale   = params.deviceScale   ?? 100;
+    this.deviceSensor  = params.deviceSensor  ?? 'mouse-x';
+    this.deviceScale   = params.deviceScale   ?? 1;
     this.deviceSmooth  = params.deviceSmooth  ?? 0.1;
     this._deviceRaw    = 0;
     this._deviceLevel  = 0;
+    this._deviceStatus = null; // error/status string for display
     this._batteryMgr   = null;
     this._lightSensor  = null;
     this._orientAlpha  = 0;
     this._orientBeta   = 0;
     this._orientGamma  = 0;
-    this._mouseX       = 0;  // 0..1 normalized
-    this._mouseY       = 0;  // 0..1 normalized
-    this._deviceOrientHandler  = null;
-    this._deviceMouseHandler   = null;
+    this._mouseX       = 0;  // 0..1
+    this._mouseY       = 0;  // 0..1
+    this._lidAngle     = 0;
+    this._hingeAngleSensor    = null;
+    this._deviceOrientHandler = null;
+    this._deviceMouseHandler  = null;
+    this._deviceScreenHandler = null;
 
     // Runtime output
     this.currentValue = 0;
@@ -280,71 +284,79 @@ export class Oscillator {
 
   // ── Device / Sensor ───────────────────────────────────
   _tickDevice(dt) {
-    // Update raw value from current sensor type
+    // Raw values in natural units (battery=%, mouse=%, orient=degrees, clock=seconds, lux=lux)
     switch (this.deviceSensor) {
       case 'battery':
-        this._deviceRaw = this._batteryMgr?.level ?? 0;
+        this._deviceRaw = (this._batteryMgr?.level ?? 0) * 100; // 0-100 %
         break;
       case 'light':
-        // already updated via AmbientLightSensor 'reading' event
-        break;
+        break; // updated live by AmbientLightSensor 'reading' event
       case 'orientation-alpha':
-        this._deviceRaw = this._orientAlpha / 360;
+        this._deviceRaw = this._orientAlpha; // 0-360 °
         break;
       case 'orientation-beta':
-        this._deviceRaw = (this._orientBeta + 180) / 360;
+        this._deviceRaw = this._orientBeta;  // -180 to 180 °
         break;
       case 'orientation-gamma':
-        this._deviceRaw = (this._orientGamma + 90) / 180;
+        this._deviceRaw = this._orientGamma; // -90 to 90 °
         break;
       case 'mouse-x':
-        this._deviceRaw = this._mouseX;
+        this._deviceRaw = this._mouseX * 100; // 0-100 %
         break;
       case 'mouse-y':
-        this._deviceRaw = this._mouseY;
+        this._deviceRaw = this._mouseY * 100; // 0-100 %
         break;
       case 'clock':
-        this._deviceRaw = (Date.now() % 86400000) / 86400000;
+        this._deviceRaw = new Date().getSeconds(); // 0-59 sec
+        break;
+      case 'lid-angle':
+        this._deviceRaw = this._lidAngle; // 0-360 °
         break;
       default:
         this._deviceRaw = 0;
     }
 
-    // Apply smoothing
+    // Exponential smoothing
     const alpha = Math.max(0.001, Math.min(1, this.deviceSmooth));
     this._deviceLevel = this._deviceLevel * (1 - alpha) + this._deviceRaw * alpha;
+    // currentValue = smoothed raw × scale  (display shows _deviceLevel, not currentValue)
     this.currentValue = this._deviceLevel * this.deviceScale;
   }
 
   async initDevice() {
+    this._deviceStatus = null;
     switch (this.deviceSensor) {
       case 'battery': {
         try {
-          const mgr = await navigator.getBattery?.();
-          if (mgr) {
-            this._batteryMgr = mgr;
-            this._deviceRaw  = mgr.level;
-            mgr.addEventListener('levelchange', () => {
-              this._deviceRaw = mgr.level;
-            });
-          }
+          const getBattery = navigator.getBattery?.bind(navigator);
+          if (!getBattery) { this._deviceStatus = 'API unavailable'; break; }
+          const mgr = await getBattery();
+          this._batteryMgr = mgr;
+          this._deviceRaw  = mgr.level * 100;
+          mgr.addEventListener('levelchange', () => {
+            this._deviceRaw = mgr.level * 100;
+          });
         } catch (e) {
-          console.warn('Battery API unavailable:', e);
+          this._deviceStatus = 'Battery unavailable';
         }
         break;
       }
       case 'light': {
         try {
-          const Sensor = window.AmbientLightSensor;
-          if (Sensor) {
-            this._lightSensor = new Sensor();
-            this._lightSensor.addEventListener('reading', () => {
-              this._deviceRaw = this._lightSensor.illuminance / 1000;
-            });
-            this._lightSensor.start();
+          if (!('AmbientLightSensor' in window)) {
+            this._deviceStatus = 'Not supported';
+            break;
           }
+          this._lightSensor = new AmbientLightSensor();
+          this._lightSensor.addEventListener('reading', () => {
+            this._deviceRaw = this._lightSensor.illuminance; // raw lux
+          });
+          this._lightSensor.addEventListener('error', (ev) => {
+            this._deviceStatus = ev.error?.message ?? 'Sensor error';
+          });
+          this._lightSensor.start();
         } catch (e) {
-          console.warn('AmbientLightSensor unavailable:', e);
+          this._deviceStatus = e.name === 'SecurityError' ? 'Permission denied' : 'Unavailable';
         }
         break;
       }
@@ -356,7 +368,24 @@ export class Oscillator {
           this._orientBeta  = e.beta  ?? 0;
           this._orientGamma = e.gamma ?? 0;
         };
-        window.addEventListener('deviceorientation', this._deviceOrientHandler);
+        // iOS 13+ requires explicit permission
+        if (typeof DeviceOrientationEvent !== 'undefined' &&
+            typeof DeviceOrientationEvent.requestPermission === 'function') {
+          DeviceOrientationEvent.requestPermission()
+            .then(state => {
+              if (state === 'granted') {
+                window.addEventListener('deviceorientation', this._deviceOrientHandler);
+              } else {
+                this._deviceStatus = 'Permission denied';
+              }
+            })
+            .catch(e => { this._deviceStatus = 'Permission error'; });
+        } else {
+          window.addEventListener('deviceorientation', this._deviceOrientHandler);
+          if (typeof DeviceOrientationEvent === 'undefined') {
+            this._deviceStatus = 'Not supported';
+          }
+        }
         break;
       }
       case 'mouse-x':
@@ -369,12 +398,39 @@ export class Oscillator {
         break;
       }
       case 'clock':
-        // no init needed
+        break; // updates every tick via new Date().getSeconds()
+      case 'lid-angle': {
+        try {
+          if ('HingeAngleSensor' in window) {
+            this._hingeAngleSensor = new HingeAngleSensor();
+            this._hingeAngleSensor.addEventListener('reading', () => {
+              this._lidAngle = this._hingeAngleSensor.angle ?? 0;
+            });
+            this._hingeAngleSensor.addEventListener('error', (ev) => {
+              this._deviceStatus = ev.error?.message ?? 'Sensor error';
+            });
+            this._hingeAngleSensor.start();
+          } else if (window.screen?.orientation) {
+            // Fallback: screen orientation angle (0, 90, 180, 270)
+            this._deviceScreenHandler = () => {
+              this._lidAngle = window.screen.orientation.angle ?? 0;
+            };
+            window.screen.orientation.addEventListener('change', this._deviceScreenHandler);
+            this._lidAngle = window.screen.orientation.angle ?? 0;
+            this._deviceStatus = 'Screen orient (no hinge)';
+          } else {
+            this._deviceStatus = 'Not supported';
+          }
+        } catch (e) {
+          this._deviceStatus = 'Unavailable';
+        }
         break;
+      }
     }
   }
 
   stopDevice() {
+    this._deviceStatus = null;
     if (this._deviceOrientHandler) {
       window.removeEventListener('deviceorientation', this._deviceOrientHandler);
       this._deviceOrientHandler = null;
@@ -387,11 +443,16 @@ export class Oscillator {
       try { this._lightSensor.stop(); } catch (e) { /* ignore */ }
       this._lightSensor = null;
     }
-    if (this._batteryMgr) {
-      // BatteryManager doesn't expose removeEventListener in all browsers,
-      // but we clear our reference so we stop reading from it
-      this._batteryMgr = null;
+    if (this._hingeAngleSensor) {
+      try { this._hingeAngleSensor.stop(); } catch (e) { /* ignore */ }
+      this._hingeAngleSensor = null;
     }
+    if (this._deviceScreenHandler) {
+      window.screen?.orientation?.removeEventListener('change', this._deviceScreenHandler);
+      this._deviceScreenHandler = null;
+    }
+    // Clear battery reference (BatteryManager has no removeEventListener in all browsers)
+    this._batteryMgr = null;
   }
 
   // ── Audio (microphone) ───────────────────────────────

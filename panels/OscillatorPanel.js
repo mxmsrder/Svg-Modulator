@@ -913,14 +913,15 @@ export class OscillatorPanel {
     sensorRow.style.paddingBottom = '4px';
 
     const SENSORS = [
-      ['mouse-x',           'Mouse X'],
-      ['mouse-y',           'Mouse Y'],
-      ['battery',           'Battery %'],
-      ['light',             'Ambient Light'],
-      ['orientation-alpha', 'Orient α'],
-      ['orientation-beta',  'Orient β'],
-      ['orientation-gamma', 'Orient γ'],
-      ['clock',             'Clock'],
+      ['mouse-x',           'Mouse X (0-100)'],
+      ['mouse-y',           'Mouse Y (0-100)'],
+      ['battery',           'Battery (0-100%)'],
+      ['clock',             'Clock (0-59 sec)'],
+      ['orientation-alpha', 'Orient α (0-360°)'],
+      ['orientation-beta',  'Orient β (±180°)'],
+      ['orientation-gamma', 'Orient γ (±90°)'],
+      ['lid-angle',         'Lid / Hinge (°)'],
+      ['light',             'Ambient Light (lux)'],
     ];
     const sel = document.createElement('select');
     sel.style.flex = '1';
@@ -944,7 +945,7 @@ export class OscillatorPanel {
     const params = document.createElement('div');
     params.className = 'osc-params';
     sliders.deviceScale = new BoxSlider(params, {
-      label: 'Scale', unit: '', min: 0, max: 500, step: 1, value: osc.deviceScale,
+      label: 'Scale', unit: '×', min: 0, max: 50, step: 0, value: osc.deviceScale,
       color: osc.color,
       onChange: v => { osc.deviceScale = v; this.onChange(); },
     });
@@ -961,6 +962,11 @@ export class OscillatorPanel {
 
   _tickDeviceDisplay(osc, card) {
     const lv = card.body.querySelector('.osc-live-val');
-    if (lv) lv.textContent = osc.currentValue.toFixed(1);
+    if (!lv) return;
+    if (osc._deviceStatus) {
+      lv.textContent = osc._deviceStatus;
+    } else {
+      lv.textContent = osc._deviceLevel.toFixed(1);
+    }
   }
 }

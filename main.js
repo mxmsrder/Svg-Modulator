@@ -352,30 +352,26 @@ async function loadLibrary() {
     if (!resp.ok) return;
     const lib = await resp.json();
 
-    // Populate SKETCHES toolbar dropdown
-    const skList = document.getElementById('sketches-list');
-    // Populate SVG toolbar dropdown library section
-    const svList = document.getElementById('svg-library-list');
-    // Populate LOAD menu sketches panel
+    // Populate LOAD menu sketches column
     const lskList = document.getElementById('load-sketches-list');
+    // Populate LOAD menu shapes column (library SVGs go above built-in shapes)
+    const loadShapesList = document.getElementById('load-shapes-list');
 
     for (const item of (lib.sketches || [])) {
-      for (const el of [skList, lskList]) {
-        if (!el) continue;
-        const btn = document.createElement('button');
-        btn.textContent = item.name;
-        btn.dataset.file = item.file;
-        btn.dataset.kind = 'osc';
-        el.appendChild(btn);
-      }
+      if (!lskList) continue;
+      const btn = document.createElement('button');
+      btn.textContent = item.name;
+      btn.dataset.file = item.file;
+      btn.dataset.kind = 'osc';
+      lskList.appendChild(btn);
     }
     for (const item of (lib.svgs || [])) {
-      if (!svList) continue;
+      if (!loadShapesList) continue;
       const btn = document.createElement('button');
       btn.textContent = item.name;
       btn.dataset.file = item.file;
       btn.dataset.kind = 'svg';
-      svList.appendChild(btn);
+      loadShapesList.insertBefore(btn, loadShapesList.firstChild);
     }
   } catch(e) { /* library.json not found */ }
 }
@@ -390,38 +386,7 @@ async function openLibraryFile(file, kind) {
   } catch(e) { alert('Could not open ' + file + ': ' + e.message); }
 }
 
-// SKETCHES dropdown
-document.getElementById('sketches-btn').addEventListener('click', (e) => {
-  e.stopPropagation();
-  document.getElementById('sketches-btn').closest('.dropdown').classList.toggle('open');
-});
-document.getElementById('sketches-menu').addEventListener('click', (e) => {
-  const btn = e.target.closest('button[data-file]');
-  if (!btn) return;
-  btn.closest('.dropdown').classList.remove('open');
-  openLibraryFile(btn.dataset.file, btn.dataset.kind);
-});
-
-// SVG dropdown
-document.getElementById('svg-btn').addEventListener('click', (e) => {
-  e.stopPropagation();
-  document.getElementById('svg-btn').closest('.dropdown').classList.toggle('open');
-});
-document.getElementById('svg-menu').addEventListener('click', async (e) => {
-  const btn = e.target.closest('button');
-  if (!btn) return;
-  btn.closest('.dropdown').classList.remove('open');
-  if (btn.dataset.file) {
-    openLibraryFile(btn.dataset.file, 'svg');
-  } else if (btn.dataset.shape) {
-    if (btn.dataset.shape === 'base') {
-      openLibraryFile('svg-library/base-shapes.svg', 'svg');
-    } else {
-      const svg = BUILT_IN_SHAPES[btn.dataset.shape];
-      if (svg) loadSVG(svg);
-    }
-  }
-});
+// (SKETCHES and SVG toolbar dropdowns removed — use LOAD dropdown instead)
 
 // CLEAR button
 document.getElementById('btn-clear-canvas').addEventListener('click', () => {
@@ -837,13 +802,17 @@ document.getElementById('load-btn').addEventListener('click', (e) => {
   document.getElementById('load-btn').closest('.dropdown').classList.toggle('open');
 });
 
-// Load menu: shapes + sketches (history handled above)
-document.getElementById('load-shapes-list').querySelectorAll('button[data-shape]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.getElementById('load-btn').closest('.dropdown').classList.remove('open');
+// Load menu: shapes column (library SVGs + built-in shapes)
+document.getElementById('load-shapes-list').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  document.getElementById('load-btn').closest('.dropdown').classList.remove('open');
+  if (btn.dataset.file) {
+    openLibraryFile(btn.dataset.file, 'svg');
+  } else if (btn.dataset.shape) {
     const svg = BUILT_IN_SHAPES[btn.dataset.shape];
     if (svg) loadSVG(svg);
-  });
+  }
 });
 
 document.getElementById('load-sketches-list').addEventListener('click', (e) => {
