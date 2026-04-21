@@ -546,7 +546,6 @@ function startPlayback() {
 function stopPlayback() {
   state.playback.playing = false;
   document.getElementById('btn-play').classList.remove('active');
-  bindingSys.resetToBase(state.paths);
   for (const osc of oscEngine.oscillators.values()) {
     if (osc.type === 'track') osc.stopTrack();
   }

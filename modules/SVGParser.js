@@ -325,6 +325,20 @@ function buildModel(cmds) {
     }
   }
 
+  // If the path is closed and the last point duplicates the first, merge them.
+  // The duplicate carries the incoming handle for the closing segment — promote
+  // it to the first point's handleIn so the closing curve is preserved.
+  if (model.closed && model.points.length >= 2) {
+    const first = model.points[0];
+    const last  = model.points[model.points.length - 1];
+    const dx = Math.abs(last.x - first.x);
+    const dy = Math.abs(last.y - first.y);
+    if (dx < 0.5 && dy < 0.5) {
+      if (last.handleIn) first.handleIn = last.handleIn;
+      model.points.pop();
+    }
+  }
+
   // Fill in any missing handles as degenerate (handle = anchor)
   for (const pt of model.points) {
     if (!pt.handleIn)  pt.handleIn  = new BezierHandle(pt.x, pt.y);
