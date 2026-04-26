@@ -126,6 +126,11 @@
         </div>
         <div class="inspector-section" id="multi-appearance-section">
           <div class="section-label">Appearance</div>
+          <div class="app-mode-row">
+            <button class="btn btn-sm" id="btn-multi-mode-fill" title="Fill only">FILL</button>
+            <button class="btn btn-sm" id="btn-multi-mode-stroke" title="Stroke only">STROKE</button>
+            <button class="btn btn-sm" id="btn-multi-mode-both" title="Fill + Stroke">BOTH</button>
+          </div>
           <div class="app-color-row">
             <span class="app-color-label">FILL</span>
             <input type="color" id="multi-fill-color" value="#ffffff">
@@ -226,6 +231,8 @@
             <button class="btn btn-sm" id="btn-mirror-x">Mirror X</button>
             <button class="btn btn-sm" id="btn-mirror-y">Mirror Y</button>
             <button class="btn btn-sm" id="btn-mirror-linked" style="grid-column:span 2">Link Mirror</button>
+            <button class="btn btn-sm" id="btn-cycle-pts-back" title="Shift all binding point indices −1">← Pts</button>
+            <button class="btn btn-sm" id="btn-cycle-pts-fwd"  title="Shift all binding point indices +1">Pts →</button>
           </div>
         </div>
 

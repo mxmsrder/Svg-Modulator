@@ -78,16 +78,25 @@ export class DragController {
 
     // Select point — fire immediately so inspector shows coords
     if (role === 'anchor') {
-      this.selection.pathId = pathId;
       const ptId = model.points[ptIdx]?.id;
       if (e.shiftKey && ptId) {
-        // Shift+click: toggle this point in the multi-selection
+        // Shift+click: toggle this point across any selected path
+        if (!this.selection.pathIds.has(pathId)) {
+          this.selection.pathIds.add(pathId);
+          model.selected = true;
+        }
         if (this.selection.pointIds.has(ptId)) {
           this.selection.pointIds.delete(ptId);
         } else {
           this.selection.pointIds.add(ptId);
         }
+        // Update primary pathId to the most recently touched path
+        this.selection.pathId = pathId;
       } else {
+        // Clear cross-path selection; select only this point on this path
+        for (const [id, m] of this.paths) { m.selected = id === pathId; }
+        this.selection.pathIds  = new Set([pathId]);
+        this.selection.pathId   = pathId;
         this.selection.pointIds = new Set(ptId ? [ptId] : []);
       }
       this.onModified(pathId); // update inspector immediately on click

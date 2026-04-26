@@ -53,6 +53,16 @@ export class BindingSystem {
 
   get(id) { return this.bindings.get(id); }
 
+  // Shift all point-index bindings on a given path by +1 or -1 (wrapping)
+  cyclePointIndices(pathId, direction, pointCount) {
+    if (!pointCount) return;
+    for (const b of this.bindings.values()) {
+      if (b.target.pathId !== pathId) continue;
+      if (b.target.pointIndex === null || b.target.pointIndex === undefined) continue;
+      b.target.pointIndex = ((b.target.pointIndex + direction) % pointCount + pointCount) % pointCount;
+    }
+  }
+
   // ── Reset all animated values to their base ──────────
   resetToBase(paths) {
     for (const model of paths.values()) {

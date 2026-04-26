@@ -23,49 +23,122 @@ export class BindingPanel {
   render() {
     this.container.innerHTML = '';
 
+    const selPointIds = this.selection.pointIds;
+    const selPathIds  = this.selection.pathIds;
+
+    // Determine which view to show
+    // If specific points are selected: show per-point bindings grouped by path
+    // Otherwise: show path-level + all-point rows for primary path
+
+    if (selPointIds && selPointIds.size > 0) {
+      this._renderPointView(selPointIds, selPathIds);
+      return;
+    }
+
     const pathId = this.selection.pathId;
     const model  = pathId ? this.paths.get(pathId) : null;
 
     if (!model) {
-      const hint = document.createElement('p');
-      hint.className = 'hint';
-      hint.style.fontSize = '11px';
-      hint.textContent = 'Select a path';
-      this.container.appendChild(hint);
+      this._hint('Select a path');
       return;
     }
 
     if (!this.engine.oscillators.size) {
-      const hint = document.createElement('p');
-      hint.className = 'hint';
-      hint.style.fontSize = '11px';
-      hint.textContent = 'Add an oscillator';
-      this.container.appendChild(hint);
+      this._hint('Add an oscillator');
       return;
     }
 
     const oscs = [...this.engine.oscillators.values()];
     const rows = this._buildRows(model);
+    this._renderTable(rows, oscs);
+  }
 
-    // Find selected point index for row highlighting
-    const selIds = this.selection.pointIds;
-    let selectedPtIdx = -1;
-    if (selIds.size === 1) {
-      const selId = [...selIds][0];
-      selectedPtIdx = model.points.findIndex(p => p.id === selId);
+  // ── Point view: selected points across potentially multiple paths ──
+
+  _renderPointView(selPointIds, selPathIds) {
+    if (!this.engine.oscillators.size) {
+      this._hint('Add an oscillator');
+      return;
     }
 
-    // Outer scroll wrapper
+    const oscs = [...this.engine.oscillators.values()];
+
+    // Collect rows: for each selected path, gather only the selected points
+    const allRows = [];
+
+    for (const pathId of (selPathIds || [])) {
+      const model = this.paths.get(pathId);
+      if (!model) continue;
+
+      // Path-level properties first (once per path in multi-path mode)
+      if ((selPathIds?.size ?? 0) > 1) {
+        for (const prop of PATH_PROPERTIES) {
+          allRows.push({
+            label: `[${model.id.slice(-4)}] ${prop}`,
+            group: 'path',
+            pathId,
+            target: (pid) => ({ pathId: pid, pointIndex: null, handleRole: null, property: prop }),
+          });
+        }
+      }
+
+      // Only selected points on this path
+      for (let i = 0; i < model.points.length; i++) {
+        const pt = model.points[i];
+        if (!selPointIds.has(pt.id)) continue;
+        for (const prop of ['x', 'y']) {
+          allRows.push({
+            label: (selPathIds?.size ?? 0) > 1 ? `[${model.id.slice(-4)}] p${i}.${prop}` : `p${i}.${prop}`,
+            group: 'point',
+            pathId,
+            ptId:  pt.id,
+            ptIdx: i,
+            target: (pid) => ({ pathId: pid, pointIndex: i, handleRole: null, property: prop }),
+          });
+        }
+      }
+    }
+
+    // If only one path selected, also show its path-level params first
+    if ((selPathIds?.size ?? 0) <= 1 && this.selection.pathId) {
+      const model = this.paths.get(this.selection.pathId);
+      if (model) {
+        const pathRows = PATH_PROPERTIES.map(prop => ({
+          label: prop,
+          group: 'path',
+          pathId: this.selection.pathId,
+          target: (pid) => ({ pathId: pid, pointIndex: null, handleRole: null, property: prop }),
+        }));
+        allRows.unshift(...pathRows);
+      }
+    }
+
+    if (!allRows.length) {
+      this._hint('No selected points');
+      return;
+    }
+
+    this._renderTable(allRows, oscs);
+  }
+
+  _hint(text) {
+    const hint = document.createElement('p');
+    hint.className = 'hint';
+    hint.style.fontSize = '11px';
+    hint.textContent = text;
+    this.container.appendChild(hint);
+  }
+
+  _renderTable(rows, oscs) {
     const wrap = document.createElement('div');
     wrap.className = 'bm-v-wrap';
 
     const table = document.createElement('table');
     table.className = 'bm-v-table';
 
-    // ── Column headers (oscillator names) ──────────────
+    // Column headers
     const thead = table.createTHead();
     const hrow  = thead.insertRow();
-
     const cornerTh = document.createElement('th');
     cornerTh.className = 'bm-v-corner';
     hrow.appendChild(cornerTh);
@@ -78,26 +151,27 @@ export class BindingPanel {
       hrow.appendChild(th);
     }
 
-    // ── Parameter rows ─────────────────────────────────
+    // Parameter rows
     const tbody = table.createTBody();
+    const selIds = this.selection.pointIds;
+    const primaryPathId = this.selection.pathId;
 
     for (const row of rows) {
+      const rowPathId = row.pathId || primaryPathId;
       const tr = tbody.insertRow();
       tr.className = row.group === 'path' ? 'bm-v-path-row' : 'bm-v-pt-row';
 
-      // Row label
       const label = document.createElement('td');
       label.className = 'bm-v-param-label';
-      if (row.group === 'point' && row.ptIdx === selectedPtIdx) {
+      if (row.group === 'point' && row.ptId && selIds?.has(row.ptId)) {
         label.classList.add('bm-v-pt-sel');
       }
       label.textContent = row.label;
       label.title = row.label;
-      // Click label → highlight point in viewer
-      if (row.target && this.onHighlight) {
+      if (row.target && this.onHighlight && rowPathId) {
         label.style.cursor = 'pointer';
         label.addEventListener('click', () => {
-          this.onHighlight(row.target(pathId));
+          this.onHighlight(row.target(rowPathId));
         });
         label.addEventListener('mouseleave', () => {
           this.onHighlight(null);
@@ -105,19 +179,17 @@ export class BindingPanel {
       }
       tr.appendChild(label);
 
-      // Oscillator cells
       for (const osc of oscs) {
         const td = document.createElement('td');
         td.className = 'bm-v-cell';
 
-        const target = row.target(pathId);
+        const target   = row.target(rowPathId);
         const existing = this._findBinding(osc.id, target);
 
         if (existing) {
           td.classList.add('bm-v-has');
           td.style.setProperty('--bm-col', hexToRgba(osc.color, 0.25));
 
-          // Compact scale: box slider + remove
           const inner = document.createElement('div');
           inner.className = 'bm-v-cell-inner';
 
@@ -127,7 +199,6 @@ export class BindingPanel {
             onDragStart: () => { this.pushHistory(); },
             onChange: v => { existing.scale = v; this.onChange(); },
           });
-          // Make slider compact
           scaleSlider.el.style.padding = '0';
 
           const rm = document.createElement('button');
@@ -144,12 +215,11 @@ export class BindingPanel {
           inner.appendChild(rm);
           td.appendChild(inner);
         } else {
-          // Empty — click to add
           td.classList.add('bm-v-empty');
           td.title = `Bind ${osc.name} → ${row.label}`;
           td.addEventListener('click', () => {
             this.pushHistory();
-            this.bs.add(osc.id, row.target(pathId), 1);
+            this.bs.add(osc.id, row.target(rowPathId), 1);
             this.onChange();
             this.render();
           });
@@ -174,25 +244,28 @@ export class BindingPanel {
 
   _buildRows(model) {
     const rows = [];
+    const pathId = this.selection.pathId;
 
-    // Path-level rows
     for (const prop of PATH_PROPERTIES) {
       rows.push({
         label: prop,
         group: 'path',
-        target: (pathId) => ({ pathId, pointIndex: null, handleRole: null, property: prop }),
+        pathId,
+        target: (pid) => ({ pathId: pid, pointIndex: null, handleRole: null, property: prop }),
       });
     }
 
-    // Per-point rows
     const n = Math.min(model.points.length, MAX_PT_ROWS);
     for (let i = 0; i < n; i++) {
+      const pt = model.points[i];
       for (const prop of ['x', 'y']) {
         rows.push({
           label: `p${i}.${prop}`,
           group: 'point',
+          pathId,
+          ptId:  pt.id,
           ptIdx: i,
-          target: (pathId) => ({ pathId, pointIndex: i, handleRole: null, property: prop }),
+          target: (pid) => ({ pathId: pid, pointIndex: i, handleRole: null, property: prop }),
         });
       }
     }

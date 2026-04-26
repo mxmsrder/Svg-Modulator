@@ -242,7 +242,7 @@ const dragCtrl = new DragController(
   viewport,
   state.paths,
   state.selection,
-  (pathId) => { inspector.render(); },
+  (pathId) => { inspector.render(); bindingPanel.render(); },
   pushHistory,
 );
 
@@ -310,6 +310,44 @@ document.getElementById('btn-delete-multi').addEventListener('click', () => {
   for (const id of state.selection.pathIds) state.paths.delete(id);
   clearPathSelection();
   renderMultiSelectUI();
+  bindingPanel.render();
+});
+
+// Multi-select fill/stroke/both mode buttons
+function _applyModeToSelection(fillVal, strokeVal) {
+  pushHistory();
+  for (const id of state.selection.pathIds) {
+    const m = state.paths.get(id);
+    if (!m) continue;
+    if (fillVal !== null)   m.fill   = fillVal   === 'keep' ? (m.fill   !== 'none' ? m.fill   : '#ffffff') : fillVal;
+    if (strokeVal !== null) m.stroke = strokeVal === 'keep' ? (m.stroke !== 'none' ? m.stroke : '#ffffff') : strokeVal;
+  }
+}
+document.getElementById('btn-multi-mode-fill').addEventListener('click', () => {
+  _applyModeToSelection('keep', 'none');
+});
+document.getElementById('btn-multi-mode-stroke').addEventListener('click', () => {
+  _applyModeToSelection('none', 'keep');
+});
+document.getElementById('btn-multi-mode-both').addEventListener('click', () => {
+  _applyModeToSelection('keep', 'keep');
+});
+
+// Cycle binding point indices ±1 for selected path
+document.getElementById('btn-cycle-pts-back').addEventListener('click', () => {
+  const pathId = state.selection.pathId;
+  const model  = state.paths.get(pathId);
+  if (!model) return;
+  pushHistory();
+  bindingSys.cyclePointIndices(pathId, -1, model.points.length);
+  bindingPanel.render();
+});
+document.getElementById('btn-cycle-pts-fwd').addEventListener('click', () => {
+  const pathId = state.selection.pathId;
+  const model  = state.paths.get(pathId);
+  if (!model) return;
+  pushHistory();
+  bindingSys.cyclePointIndices(pathId, 1, model.points.length);
   bindingPanel.render();
 });
 
