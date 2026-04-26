@@ -60,6 +60,7 @@ export class OscillatorPanel {
     card.className = 'osc-card';
     if (!osc.enabled) card.classList.add('osc-disabled');
     card.dataset.oscId = osc.id;
+    card.style.borderLeftColor = osc.color;
 
     // Header: enable toggle + color dot + name + type selector + delete
     const header = document.createElement('div');
@@ -88,6 +89,7 @@ export class OscillatorPanel {
       const idx = colors.indexOf(osc.color);
       osc.color = colors[(idx + 1) % colors.length];
       colorDot.style.background = osc.color;
+      card.style.borderLeftColor = osc.color;
       this.onChange();
     });
     header.appendChild(colorDot);
@@ -100,19 +102,7 @@ export class OscillatorPanel {
     this._attachRename(nameSpan, osc);
     header.appendChild(nameSpan);
 
-    // Type selector
-    const typeSel = document.createElement('select');
-    typeSel.className = 'osc-type-sel';
-    typeSel.innerHTML = MODULATOR_TYPES.map(t =>
-      `<option value="${t}" ${t === osc.type ? 'selected' : ''}>${TYPE_LABELS[t]}</option>`
-    ).join('');
-    typeSel.addEventListener('change', (e) => {
-      this.pushHistory();
-      osc.type = e.target.value;
-      this._rebuildBody(osc, body);
-      this.onChange();
-    });
-    header.appendChild(typeSel);
+    // (type picker is inside body, built by _rebuildBody)
 
     // Delete button
     const delBtn = document.createElement('button');
@@ -174,6 +164,26 @@ export class OscillatorPanel {
     const card = this._cards.get(osc.id);
     if (!card) return;
     card.sliders = {};
+
+    // Type picker — 4-column pill grid
+    const typeGrid = document.createElement('div');
+    typeGrid.className = 'osc-type-grid';
+    for (const t of MODULATOR_TYPES) {
+      const btn = document.createElement('button');
+      btn.className = 'osc-type-btn' + (t === osc.type ? ' active' : '');
+      btn.textContent = TYPE_LABELS[t];
+      btn.dataset.type = t;
+      if (t === osc.type) btn.style.background = osc.color + '55';
+      btn.addEventListener('click', () => {
+        if (osc.type === t) return;
+        this.pushHistory();
+        osc.type = t;
+        this._rebuildBody(osc, body);
+        this.onChange();
+      });
+      typeGrid.appendChild(btn);
+    }
+    body.appendChild(typeGrid);
 
     switch (osc.type) {
       case 'lfo':        this._buildLFO(osc, body, card.sliders);        break;
@@ -534,7 +544,7 @@ export class OscillatorPanel {
     muteBtn.className = 'btn btn-sm' + (osc.trackMuted ? ' active' : '');
     muteBtn.textContent = osc.trackMuted ? 'MUTED' : 'MUTE';
     muteBtn.addEventListener('click', () => {
-      osc.trackMuted = !osc.trackMuted;
+      osc.setTrackMute?.(!osc.trackMuted);
       muteBtn.textContent = osc.trackMuted ? 'MUTED' : 'MUTE';
       muteBtn.classList.toggle('active', osc.trackMuted);
       this.onChange();

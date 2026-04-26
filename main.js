@@ -358,14 +358,31 @@ async function fetchFolderFiles(folderPath, ext) {
     const resp = await fetch(folderPath);
     if (!resp.ok) return [];
     const html = await resp.text();
-    const doc  = new DOMParser().parseFromString(html, 'text/html');
-    return [...doc.querySelectorAll('a[href]')]
-      .map(a => decodeURIComponent(a.getAttribute('href') || ''))
-      .filter(h => h.toLowerCase().endsWith(ext) && !h.includes('/') && !h.startsWith('?') && !h.startsWith('#'))
-      .map(filename => ({
+    // Must look like an HTML directory listing
+    if (!html.toLowerCase().includes('<html')) return [];
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const results = [];
+    for (const a of doc.querySelectorAll('a[href]')) {
+      const raw = decodeURIComponent(a.getAttribute('href') || '');
+      // Strip trailing slash (dirs) and any path prefix — keep just the filename
+      const filename = raw.replace(/\/$/, '').split('/').pop();
+      if (!filename || !filename.toLowerCase().endsWith(ext)) continue;
+      results.push({
         name: filename.slice(0, -ext.length),
         file: folderPath.replace(/\/$/, '') + '/' + filename,
-      }));
+      });
+    }
+    return results;
+  } catch { return []; }
+}
+
+async function fetchLibraryJsonFiles(kind) {
+  try {
+    const resp = await fetch('./library.json');
+    if (!resp.ok) return [];
+    const lib  = await resp.json();
+    const key  = kind === 'svg' ? 'svgs' : 'sketches';
+    return (lib[key] || []).map(e => ({ name: e.name, file: e.file }));
   } catch { return []; }
 }
 
@@ -734,7 +751,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 document.getElementById('add-osc-btn').addEventListener('click', () => {
-  oscEngine.add({ name: `LFO ${oscEngine.oscillators.size + 1}` });
+  oscEngine.add({ name: `Mod ${oscEngine.oscillators.size + 1}` });
   oscPanel.render();
   bindingPanel.render();
 });
@@ -785,7 +802,7 @@ function _rebuildHistoryList() {
 async function rebuildLoadMenu() {
   _rebuildHistoryList();
 
-  // Shapes — built-ins + scan svg-library/ dynamically
+  // Shapes — built-ins + scan svg-library/ (fallback: library.json)
   const shapesEl = document.getElementById('load-shapes-list');
   if (shapesEl) {
     shapesEl.innerHTML = '';
@@ -797,21 +814,23 @@ async function rebuildLoadMenu() {
     const placeholder = document.createElement('span');
     placeholder.className = 'dropdown-empty'; placeholder.textContent = '…';
     shapesEl.appendChild(placeholder);
-    const svgFiles = await fetchFolderFiles('./svg-library/', '.svg');
+    let svgFiles = await fetchFolderFiles('./svg-library/', '.svg');
+    if (!svgFiles.length) svgFiles = await fetchLibraryJsonFiles('svg');
     placeholder.remove();
     for (const f of svgFiles) {
-      if (f.file.includes('base-shapes')) continue;
+      if (f.name === 'base-shapes') continue;
       const btn = document.createElement('button');
       btn.textContent = f.name; btn.dataset.file = f.file;
       shapesEl.appendChild(btn);
     }
   }
 
-  // Sketches — scan sketches/ dynamically
+  // Sketches — scan sketches/ (fallback: library.json)
   const sketchesEl = document.getElementById('load-sketches-list');
   if (sketchesEl) {
     sketchesEl.innerHTML = '<span class="dropdown-empty">…</span>';
-    const oscFiles = await fetchFolderFiles('./sketches/', '.osc');
+    let oscFiles = await fetchFolderFiles('./sketches/', '.osc');
+    if (!oscFiles.length) oscFiles = await fetchLibraryJsonFiles('sketches');
     sketchesEl.innerHTML = '';
     if (!oscFiles.length) {
       sketchesEl.innerHTML = '<span class="dropdown-empty">No sketches yet</span>';

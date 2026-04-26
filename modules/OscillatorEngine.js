@@ -36,7 +36,7 @@ export const MODULATOR_TYPES = ['lfo', 'step', 'randomwalk', 'audio', 'expressio
 export class Oscillator {
   constructor(params = {}) {
     this.id      = uid('mod');
-    this.name    = params.name    || 'LFO 1';
+    this.name    = params.name    || 'Mod 1';
     this.type    = params.type    || 'lfo';    // lfo|step|randomwalk|audio|expression|track|envelope|device
     this.color   = params.color   || randomColor();
     this.enabled = params.enabled ?? true;
@@ -87,13 +87,14 @@ export class Oscillator {
     this.trackAmplitude = params.trackAmplitude ?? 100;
     this.trackMuted     = params.trackMuted     ?? false;
     this.trackThreshold = params.trackThreshold ?? 0;    // 0=all pass, 1=peaks only
-    this.trackBuffer    = null;    // AudioBuffer — not serialized
-    this._trackCtx      = null;
-    this._trackSource   = null;
-    this._trackAnalyser = null;
-    this._trackDataArr  = null;
-    this._trackActive   = false;
-    this._trackLevel    = 0;
+    this.trackBuffer     = null;    // AudioBuffer — not serialized
+    this._trackCtx       = null;
+    this._trackSource    = null;
+    this._trackAnalyser  = null;
+    this._trackGainNode  = null;
+    this._trackDataArr   = null;
+    this._trackActive    = false;
+    this._trackLevel     = 0;
 
     // ── Envelope params ──────────────────────────────
     this.envPoints    = params.envPoints    ?? [{x:0,y:0},{x:0.3,y:1},{x:0.7,y:0.6},{x:1,y:0}];
@@ -117,7 +118,8 @@ export class Oscillator {
     this._orientGamma  = 0;
     this._mouseX       = 0;  // 0..1
     this._mouseY       = 0;  // 0..1
-    this._lidAngle     = 0;
+    this._lidAngle            = 0;
+    this._orientReceivedData  = false;
     this._hingeAngleSensor    = null;
     this._deviceOrientHandler = null;
     this._deviceMouseHandler  = null;
@@ -177,7 +179,8 @@ export class Oscillator {
   }
 
   _tickTrack() {
-    if (this.trackMuted || !this._trackActive) { this.currentValue = 0; return; }
+    // Always read analyser even when muted (audio is silenced via GainNode, not here)
+    if (!this._trackActive) { this.currentValue = 0; return; }
     if (!this._trackDataArr || !this._trackAnalyser) return;
     this._trackAnalyser.getByteFrequencyData(this._trackDataArr);
     const level = this._readBandRaw(this._trackDataArr, this.trackBand);
@@ -342,6 +345,7 @@ export class Oscillator {
         break;
       }
       case 'light': {
+        if (!window.isSecureContext) { this._deviceStatus = 'Needs HTTPS'; break; }
         try {
           if (!('AmbientLightSensor' in window)) {
             this._deviceStatus = 'Not supported';
@@ -349,42 +353,57 @@ export class Oscillator {
           }
           this._lightSensor = new AmbientLightSensor();
           this._lightSensor.addEventListener('reading', () => {
-            this._deviceRaw = this._lightSensor.illuminance; // raw lux
+            this._deviceRaw = this._lightSensor.illuminance;
           });
           this._lightSensor.addEventListener('error', (ev) => {
-            this._deviceStatus = ev.error?.message ?? 'Sensor error';
+            this._deviceStatus = ev.error?.name === 'NotAllowedError'
+              ? 'Permission denied' : (ev.error?.message ?? 'Sensor error');
           });
           this._lightSensor.start();
         } catch (e) {
-          this._deviceStatus = e.name === 'SecurityError' ? 'Permission denied' : 'Unavailable';
+          this._deviceStatus = e.name === 'SecurityError' ? 'Permission denied' : 'Not available';
         }
         break;
       }
       case 'orientation-alpha':
       case 'orientation-beta':
       case 'orientation-gamma': {
+        if (typeof DeviceOrientationEvent === 'undefined') {
+          this._deviceStatus = 'Not supported';
+          break;
+        }
         this._deviceOrientHandler = (e) => {
+          // null values mean no physical sensor (common on desktop)
+          if (e.alpha == null && e.beta == null && e.gamma == null) {
+            if (!this._orientReceivedData) this._deviceStatus = 'No sensor (use mobile)';
+            return;
+          }
+          this._orientReceivedData = true;
+          this._deviceStatus = null;
           this._orientAlpha = e.alpha ?? 0;
           this._orientBeta  = e.beta  ?? 0;
           this._orientGamma = e.gamma ?? 0;
         };
         // iOS 13+ requires explicit permission
-        if (typeof DeviceOrientationEvent !== 'undefined' &&
-            typeof DeviceOrientationEvent.requestPermission === 'function') {
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
           DeviceOrientationEvent.requestPermission()
             .then(state => {
               if (state === 'granted') {
+                this._orientReceivedData = false;
                 window.addEventListener('deviceorientation', this._deviceOrientHandler);
               } else {
                 this._deviceStatus = 'Permission denied';
               }
             })
-            .catch(e => { this._deviceStatus = 'Permission error'; });
+            .catch(() => { this._deviceStatus = 'Permission error'; });
         } else {
+          this._orientReceivedData = false;
           window.addEventListener('deviceorientation', this._deviceOrientHandler);
-          if (typeof DeviceOrientationEvent === 'undefined') {
-            this._deviceStatus = 'Not supported';
-          }
+          this._deviceStatus = 'Waiting…';
+          // Clear 'Waiting' after 2s if data arrived; otherwise show hint
+          setTimeout(() => {
+            if (!this._orientReceivedData) this._deviceStatus = 'No sensor (use mobile)';
+          }, 2000);
         }
         break;
       }
@@ -400,29 +419,32 @@ export class Oscillator {
       case 'clock':
         break; // updates every tick via new Date().getSeconds()
       case 'lid-angle': {
+        if (!window.isSecureContext) { this._deviceStatus = 'Needs HTTPS'; break; }
         try {
           if ('HingeAngleSensor' in window) {
             this._hingeAngleSensor = new HingeAngleSensor();
             this._hingeAngleSensor.addEventListener('reading', () => {
               this._lidAngle = this._hingeAngleSensor.angle ?? 0;
+              this._deviceStatus = null;
             });
             this._hingeAngleSensor.addEventListener('error', (ev) => {
-              this._deviceStatus = ev.error?.message ?? 'Sensor error';
+              this._deviceStatus = ev.error?.name === 'NotAllowedError'
+                ? 'Permission denied' : 'Hinge not available';
             });
             this._hingeAngleSensor.start();
+            this._deviceStatus = 'Waiting…';
           } else if (window.screen?.orientation) {
-            // Fallback: screen orientation angle (0, 90, 180, 270)
             this._deviceScreenHandler = () => {
               this._lidAngle = window.screen.orientation.angle ?? 0;
             };
             window.screen.orientation.addEventListener('change', this._deviceScreenHandler);
             this._lidAngle = window.screen.orientation.angle ?? 0;
-            this._deviceStatus = 'Screen orient (no hinge)';
+            this._deviceStatus = 'Screen rotation only';
           } else {
             this._deviceStatus = 'Not supported';
           }
         } catch (e) {
-          this._deviceStatus = 'Unavailable';
+          this._deviceStatus = e.name === 'SecurityError' ? 'Permission denied' : 'Not available';
         }
         break;
       }
@@ -490,26 +512,37 @@ export class Oscillator {
   playTrack(offsetSec = 0) {
     if (!this.trackBuffer || !this._trackCtx) return;
     this.stopTrack();
-    const analyser = this._trackCtx.createAnalyser();
+    const analyser  = this._trackCtx.createAnalyser();
     analyser.fftSize = 256;
     analyser.smoothingTimeConstant = 0;
+    // GainNode controls speaker output — analyser is before it so it always reads signal
+    const gainNode = this._trackCtx.createGain();
+    gainNode.gain.value = this.trackMuted ? 0 : 1;
     const src = this._trackCtx.createBufferSource();
     src.buffer = this.trackBuffer;
     src.connect(analyser);
-    analyser.connect(this._trackCtx.destination);
+    analyser.connect(gainNode);
+    gainNode.connect(this._trackCtx.destination);
     const safeOffset = Math.max(0, Math.min(offsetSec, this.trackBuffer.duration));
     src.start(0, safeOffset);
-    this._trackSource  = src;
+    this._trackSource   = src;
     this._trackAnalyser = analyser;
+    this._trackGainNode = gainNode;
     this._trackDataArr  = new Uint8Array(analyser.frequencyBinCount);
     this._trackActive   = true;
   }
 
+  setTrackMute(muted) {
+    this.trackMuted = muted;
+    if (this._trackGainNode) this._trackGainNode.gain.value = muted ? 0 : 1;
+  }
+
   stopTrack() {
     try { this._trackSource?.stop(); } catch(e) { /* already stopped */ }
-    this._trackSource  = null;
-    this._trackActive  = false;
+    this._trackSource   = null;
+    this._trackActive   = false;
     this._trackAnalyser = null;
+    this._trackGainNode = null;
     this._trackDataArr  = null;
   }
 

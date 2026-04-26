@@ -219,9 +219,10 @@ body { display: flex; flex-direction: column; }
 /* ── OSCILLATOR CARDS ──────────────────────────────── */
 .osc-card {
   background: var(--bg2);
-  padding: 8px;
+  padding: 8px 8px 8px 10px;
   margin: 3px 4px;
   position: relative;
+  border-left: 2px solid transparent;
 }
 .osc-card-header {
   display: flex;
@@ -229,8 +230,10 @@ body { display: flex; flex-direction: column; }
   gap: 5px;
   margin-bottom: 6px;
 }
+.osc-card.osc-disabled { opacity: 0.4; }
 .osc-color-dot {
   width: 8px; height: 8px;
+  border-radius: 50%;
   flex-shrink: 0;
   cursor: pointer;
 }
@@ -244,7 +247,28 @@ body { display: flex; flex-direction: column; }
   white-space: nowrap;
   color: var(--text);
 }
-.osc-type-sel { font-size: 10px; flex-shrink: 0; }
+/* Type picker grid (replaces <select>) */
+.osc-type-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  margin-bottom: 6px;
+}
+.osc-type-btn {
+  padding: 3px 0;
+  font-size: 9px;
+  font-family: inherit;
+  background: var(--bg3);
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  transition: background 0.1s, color 0.1s;
+}
+.osc-type-btn:hover { background: var(--bg4); color: var(--text); }
+.osc-type-btn.active { color: #fff; }
 .osc-delete {
   background: none;
   border: none;
