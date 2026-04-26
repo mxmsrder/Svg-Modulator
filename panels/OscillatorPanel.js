@@ -165,25 +165,53 @@ export class OscillatorPanel {
     if (!card) return;
     card.sliders = {};
 
-    // Type picker — 4-column pill grid
-    const typeGrid = document.createElement('div');
-    typeGrid.className = 'osc-type-grid';
+    // Type picker — collapsible dropdown
+    const typeWrap = document.createElement('div');
+    typeWrap.className = 'osc-type-wrap';
+
+    const typeToggle = document.createElement('button');
+    typeToggle.className = 'osc-type-toggle';
+    typeToggle.style.borderLeftColor = osc.color;
+    typeToggle.innerHTML = `<span class="osc-type-cur">${TYPE_LABELS[osc.type]}</span><span class="osc-type-arrow">▾</span>`;
+    typeWrap.appendChild(typeToggle);
+
+    const typeList = document.createElement('div');
+    typeList.className = 'osc-type-list';
     for (const t of MODULATOR_TYPES) {
-      const btn = document.createElement('button');
-      btn.className = 'osc-type-btn' + (t === osc.type ? ' active' : '');
-      btn.textContent = TYPE_LABELS[t];
-      btn.dataset.type = t;
-      if (t === osc.type) btn.style.background = osc.color + '55';
-      btn.addEventListener('click', () => {
+      const item = document.createElement('button');
+      item.className = 'osc-type-item' + (t === osc.type ? ' active' : '');
+      item.textContent = TYPE_LABELS[t];
+      if (t === osc.type) item.style.color = osc.color;
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        typeList.classList.remove('open');
+        typeToggle.querySelector('.osc-type-arrow').textContent = '▾';
         if (osc.type === t) return;
         this.pushHistory();
         osc.type = t;
         this._rebuildBody(osc, body);
         this.onChange();
       });
-      typeGrid.appendChild(btn);
+      typeList.appendChild(item);
     }
-    body.appendChild(typeGrid);
+    typeWrap.appendChild(typeList);
+
+    typeToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = typeList.classList.toggle('open');
+      typeToggle.querySelector('.osc-type-arrow').textContent = open ? '▴' : '▾';
+    });
+    // Self-cleaning outside-click handler: removes itself once the node leaves the DOM
+    const closeOnOutside = (e) => {
+      if (!typeWrap.isConnected) { document.removeEventListener('click', closeOnOutside); return; }
+      if (!typeWrap.contains(e.target)) {
+        typeList.classList.remove('open');
+        typeToggle.querySelector('.osc-type-arrow').textContent = '▾';
+      }
+    };
+    document.addEventListener('click', closeOnOutside);
+
+    body.appendChild(typeWrap);
 
     switch (osc.type) {
       case 'lfo':        this._buildLFO(osc, body, card.sliders);        break;
