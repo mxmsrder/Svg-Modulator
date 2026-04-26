@@ -16,7 +16,8 @@ export class BoxSlider {
     this.label    = opts.label    ?? '';
     this.unit     = opts.unit     ?? '';
     this.color    = opts.color    ?? '#6c63ff';
-    this.onChange = opts.onChange ?? null;
+    this.onChange   = opts.onChange   ?? null;
+    this.onDragStart = opts.onDragStart ?? null;
     this._startX  = 0;
     this._startVal = 0;
 
@@ -74,6 +75,7 @@ export class BoxSlider {
       this._startX   = e.clientX;
       this._startVal = this.value;
       this._track.setPointerCapture(e.pointerId);
+      this.onDragStart?.();
       e.preventDefault();
     });
 
@@ -135,10 +137,12 @@ export class BoxSlider {
       document.body.appendChild(input);
       input.focus();
       input.select();
+      let _typedHistoryPushed = false;
       const commit = () => {
         const v = parseFloat(input.value);
         if (!isNaN(v)) {
-          this.value = v; // no clamp — respect any typed value
+          if (!_typedHistoryPushed) { _typedHistoryPushed = true; this.onDragStart?.(); }
+          this.value = v;
           this._update();
           this.onChange?.(this.value);
         }

@@ -9,14 +9,15 @@ import { BoxSlider } from '../components/BoxSlider.js';
 const MAX_PT_ROWS = 24; // max point rows to show
 
 export class BindingPanel {
-  constructor(containerEl, bindingSystem, engine, paths, selection, onChange, onHighlight) {
-    this.container   = containerEl;
-    this.bs          = bindingSystem;
-    this.engine      = engine;
-    this.paths       = paths;
-    this.selection   = selection;
-    this.onChange    = onChange;
-    this.onHighlight = onHighlight || null; // fn(target | null) → highlight in viewer
+  constructor(containerEl, bindingSystem, engine, paths, selection, onChange, onHighlight, pushHistory) {
+    this.container    = containerEl;
+    this.bs           = bindingSystem;
+    this.engine       = engine;
+    this.paths        = paths;
+    this.selection    = selection;
+    this.onChange     = onChange;
+    this.onHighlight  = onHighlight  || null;
+    this.pushHistory  = pushHistory  || (() => {});
   }
 
   render() {
@@ -123,6 +124,7 @@ export class BindingPanel {
           const scaleSlider = new BoxSlider(inner, {
             label: '', unit: '', min: -10, max: 10, step: 0,
             value: existing.scale, color: osc.color,
+            onDragStart: () => { this.pushHistory(); },
             onChange: v => { existing.scale = v; this.onChange(); },
           });
           // Make slider compact
@@ -134,6 +136,7 @@ export class BindingPanel {
           rm.title       = 'Remove binding';
           rm.addEventListener('click', (e) => {
             e.stopPropagation();
+            this.pushHistory();
             this.bs.remove(existing.id);
             this.onChange();
             this.render();
@@ -145,6 +148,7 @@ export class BindingPanel {
           td.classList.add('bm-v-empty');
           td.title = `Bind ${osc.name} → ${row.label}`;
           td.addEventListener('click', () => {
+            this.pushHistory();
             this.bs.add(osc.id, row.target(pathId), 1);
             this.onChange();
             this.render();

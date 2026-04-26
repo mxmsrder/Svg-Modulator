@@ -187,19 +187,22 @@ export class CanvasViewport {
         this._pathEls.set(id, el);
       }
 
+      // Cache path string and transform — reused for both visual and hit elements
+      const d = model.toPathString();
+      const t = model.toTransformString();
+
       if (!model.visible) {
         el.setAttribute('visibility', 'hidden');
       } else {
         el.setAttribute('visibility', 'visible');
-        el.setAttribute('d', model.toPathString());
-        const t = model.toTransformString();
+        el.setAttribute('d', d);
         if (t) el.setAttribute('transform', t); else el.removeAttribute('transform');
 
         if (showWireframe) {
           el.setAttribute('fill', 'none');
           const wfStroke = model.stroke !== 'none' ? applyHSLDelta(model.stroke, model.strokeH, model.strokeS, model.strokeL) : '#888888';
           el.setAttribute('stroke', wfStroke);
-          el.setAttribute('stroke-width', invZ.toFixed(6)); // always 1px screen-space
+          el.setAttribute('stroke-width', invZ.toFixed(6));
           el.setAttribute('fill-opacity', '0');
         } else {
           el.setAttribute('fill',         applyHSLDelta(model.fill,   model.fillH,   model.fillS,   model.fillL));
@@ -207,11 +210,8 @@ export class CanvasViewport {
           el.setAttribute('stroke',       applyHSLDelta(model.stroke, model.strokeH, model.strokeS, model.strokeL));
           el.setAttribute('stroke-width', model.strokeWidth);
         }
-        if (model.selected) {
-          el.setAttribute('stroke-opacity', '1');
-        } else {
-          el.removeAttribute('stroke-opacity');
-        }
+        if (model.selected) el.setAttribute('stroke-opacity', '1');
+        else                 el.removeAttribute('stroke-opacity');
       }
 
       let hit = this._hitEls.get(id);
@@ -231,9 +231,8 @@ export class CanvasViewport {
         hit.setAttribute('visibility', 'hidden');
       } else {
         hit.setAttribute('visibility', 'visible');
-        hit.setAttribute('d', model.toPathString());
+        hit.setAttribute('d', d);
         hit.setAttribute('stroke-width', Math.max(10 * invZ, 2));
-        const t = model.toTransformString();
         if (t) hit.setAttribute('transform', t); else hit.removeAttribute('transform');
       }
     }

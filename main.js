@@ -221,6 +221,7 @@ const bindingPanel = new BindingPanel(
     state.selection.highlightTarget = target;
     overlay.highlightTarget = target;
   },
+  pushHistory,
 );
 
 const inspector = new PathInspector(
@@ -505,8 +506,10 @@ function clearPathSelection() {
 
 svgEl.addEventListener('click', (e) => {
   if (e.target.dataset.role === 'anchor' || e.target.dataset.role === 'handle') return;
-  // Ignore if rubber band was active (movement happened)
-  if (_rbMoved) return;
+  // Consume _rbMoved: ignore this click if a drag just ended, but always reset the flag
+  const wasDrag = _rbMoved;
+  _rbMoved = false;
+  if (wasDrag) return;
 
   const pathEl = e.target.closest('[data-path-id]');
   if (pathEl) {
