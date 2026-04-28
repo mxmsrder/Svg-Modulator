@@ -1,0 +1,1711 @@
+{
+  "version": "1.1",
+  "type": "svg-oscillator-sketch",
+  "paths": [
+    {
+      "id": "path-196",
+      "closed": true,
+      "fill": "#4f7a28",
+      "stroke": "none",
+      "strokeWidth": 0.05,
+      "baseStrokeWidth": 0.05,
+      "fillOpacity": 0.7373417721518987,
+      "baseFillOpacity": 0.7373417721518987,
+      "tx": -19.033974331755644,
+      "baseTx": 0,
+      "ty": -38.06794866351129,
+      "baseTy": 0,
+      "rotation": 0,
+      "baseRotation": 0,
+      "scaleX": 1,
+      "baseScaleX": 1,
+      "scaleY": 1,
+      "baseScaleY": 1,
+      "fillH": 87.40852593611751,
+      "baseFillH": 0,
+      "fillS": 0,
+      "baseFillS": 0,
+      "fillL": 0,
+      "baseFillL": 0,
+      "strokeH": 0,
+      "baseStrokeH": 0,
+      "strokeS": 0,
+      "baseStrokeS": 0,
+      "strokeL": 0,
+      "baseStrokeL": 0,
+      "selected": false,
+      "visible": true,
+      "mirrorSlaveId": "path-154402",
+      "mirrorAxis": "x",
+      "points": [
+        {
+          "id": "pt-197",
+          "x": 2.3235407515982374,
+          "y": -10.916459248401761,
+          "baseX": 26.79,
+          "baseY": 13.55,
+          "type": "cusp",
+          "handleIn": {
+            "id": "h-203",
+            "x": 28.9306712962963,
+            "y": 6.734971064814816,
+            "baseX": 28.9306712962963,
+            "baseY": 6.734971064814816
+          },
+          "handleOut": {
+            "id": "h-198",
+            "x": 33.04,
+            "y": 11.450000000000001,
+            "baseX": 33.04,
+            "baseY": 11.450000000000001
+          }
+        },
+        {
+          "id": "pt-199",
+          "x": 40.08,
+          "y": 102.26696732940101,
+          "baseX": 40.08,
+          "baseY": 0.26000000000000156,
+          "type": "cusp",
+          "handleIn": {
+            "id": "h-200",
+            "x": 37.98,
+            "y": 6.510000000000001,
+            "baseX": 37.98,
+            "baseY": 6.510000000000001
+          },
+          "handleOut": {
+            "id": "h-201",
+            "x": 33.83,
+            "y": 2.3600000000000017,
+            "baseX": 33.83,
+            "baseY": 2.3600000000000017
+          }
+        }
+      ]
+    },
+    {
+      "id": "path-206",
+      "closed": true,
+      "fill": "#4f7a28",
+      "stroke": "none",
+      "strokeWidth": 0.05,
+      "baseStrokeWidth": 0.05,
+      "fillOpacity": 0.7373417721518987,
+      "baseFillOpacity": 0.7373417721518987,
+      "tx": 19.033974331755644,
+      "baseTx": 0,
+      "ty": -38.06794866351129,
+      "baseTy": 0,
+      "rotation": 0,
+      "baseRotation": 0,
+      "scaleX": 1,
+      "baseScaleX": 1,
+      "scaleY": 1,
+      "baseScaleY": 1,
+      "fillH": 87.40852593611751,
+      "baseFillH": 0,
+      "fillS": 0,
+      "baseFillS": 0,
+      "fillL": 0,
+      "baseFillL": 0,
+      "strokeH": 0,
+      "baseStrokeH": 0,
+      "strokeS": 0,
+      "baseStrokeS": 0,
+      "strokeL": 0,
+      "baseStrokeL": 0,
+      "selected": false,
+      "visible": true,
+      "mirrorSlaveId": "path-154409",
+      "mirrorAxis": "x",
+      "points": [
+        {
+          "id": "pt-207",
+          "x": 0,
+          "y": 102.00696732940101,
+          "baseX": 0,
+          "baseY": 0,
+          "type": "cusp",
+          "handleIn": {
+            "id": "h-213",
+            "x": 6.47,
+            "y": 2.07,
+            "baseX": 6.47,
+            "baseY": 2.07
+          },
+          "handleOut": {
+            "id": "h-208",
+            "x": 2.07,
+            "y": 6.47,
+            "baseX": 2.07,
+            "baseY": 6.47
+          }
+        },
+        {
+          "id": "pt-209",
+          "x": 38.10645924840176,
+          "y": -10.826459248401761,
+          "baseX": 13.64,
+          "baseY": 13.64,
+          "type": "cusp",
+          "handleIn": {
+            "id": "h-210",
+            "x": 7.18,
+            "y": 11.57,
+            "baseX": 7.18,
+            "baseY": 11.57
+          },
+          "handleOut": {
+            "id": "h-211",
+            "x": 11.57,
+            "y": 7.18,
+            "baseX": 11.57,
+            "baseY": 7.18
+          }
+        }
+      ]
+    },
+    {
+      "id": "path-151700",
+      "closed": true,
+      "fill": "#450e59",
+      "stroke": "none",
+      "strokeWidth": 1.510477050720754,
+      "baseStrokeWidth": 0.050632911392405,
+      "fillOpacity": 0.7373417721518987,
+      "baseFillOpacity": 0.7373417721518987,
+      "tx": 0,
+      "baseTx": 0,
+      "ty": 0,
+      "baseTy": 0,
+      "rotation": -5.432484916646118,
+      "baseRotation": 0,
+      "scaleX": 1,
+      "baseScaleX": 1,
+      "scaleY": 1,
+      "baseScaleY": 1,
+      "fillH": 0,
+      "baseFillH": 0,
+      "fillS": 0,
+      "baseFillS": 0,
+      "fillL": 0,
+      "baseFillL": 0,
+      "strokeH": 0,
+      "baseStrokeH": 0,
+      "strokeS": 0,
+      "baseStrokeS": 0,
+      "strokeL": 14.59844139328349,
+      "baseStrokeL": 0,
+      "selected": false,
+      "visible": true,
+      "mirrorSlaveId": "path-182034",
+      "mirrorAxis": "x",
+      "points": [
+        {
+          "id": "pt-154396",
+          "x": 29.170679066712708,
+          "y": 15.930679066712706,
+          "baseX": 29.170679066712708,
+          "baseY": 15.930679066712706,
+          "type": "cusp",
+          "handleIn": {
+            "id": "h-154397",
+            "x": 28.930671296296296,
+            "y": 6.734971064814816,
+            "baseX": 28.930671296296296,
+            "baseY": 6.734971064814816
+          },
+          "handleOut": {
+            "id": "h-154398",
+            "x": 33.04,
+            "y": 11.450000000000001,
+            "baseX": 33.04,
+            "baseY": 11.450000000000001
+          }
+        },
+        {
+          "id": "pt-154399",
+          "x": 40.08,
+          "y": 58.86280438617808,
+          "baseX": 40.08,
+          "baseY": 58.86280438617808,
+          "type": "cusp",
+          "handleIn": {
+            "id": "h-154400",
+            "x": 37.98,
+            "y": 6.510000000000001,
+            "baseX": 37.98,
+            "baseY": 6.510000000000001
+          },
+          "handleOut": {
+            "id": "h-154401",
+            "x": 33.83,
+            "y": 2.3600000000000017,
+            "baseX": 33.83,
+            "baseY": 2.3600000000000017
+          }
+        }
+      ]
+    },
+    {
+      "id": "path-151707",
+      "closed": true,
+      "fill": "#450e59",
+      "stroke": "none",
+      "strokeWidth": 1.510477050720754,
+      "baseStrokeWidth": 0.050632911392405,
+      "fillOpacity": 0.7373417721518987,
+      "baseFillOpacity": 0.7373417721518987,
+      "tx": 0,
+      "baseTx": 0,
+      "ty": 0,
+      "baseTy": 0,
+      "rotation": 5.432484916646118,
+      "baseRotation": 0,
+      "scaleX": 1,
+      "baseScaleX": 1,
+      "scaleY": 1,
+      "baseScaleY": 1,
+      "fillH": 0,
+      "baseFillH": 0,
+      "fillS": 0,
+      "baseFillS": 0,
+      "fillL": 0,
+      "baseFillL": 0,
+      "strokeH": 0,
+      "baseStrokeH": 0,
+      "strokeS": 0,
+      "baseStrokeS": 0,
+      "strokeL": 14.59844139328349,
+      "baseStrokeL": 0,
+      "selected": true,
+      "visible": true,
+      "mirrorSlaveId": "path-182041",
+      "mirrorAxis": "x",
+      "points": [
+        {
+          "id": "pt-154390",
+          "x": 0,
+          "y": 58.60280438617808,
+          "baseX": 0,
+          "baseY": 58.60280438617808,
+          "type": "cusp",
+          "handleIn": {
+            "id": "h-154391",
+            "x": 6.47,
+            "y": 2.07,
+            "baseX": 6.47,
+            "baseY": 2.07
+          },
+          "handleOut": {
+            "id": "h-154392",
+            "x": 2.0700000000000003,
+            "y": 6.47,
+            "baseX": 2.0700000000000003,
+            "baseY": 6.47
+          }
+        },
+        {
+          "id": "pt-154393",
+          "x": 11.259320933287295,
+          "y": 16.020679066712706,
+          "baseX": 11.259320933287295,
+          "baseY": 16.020679066712706,
+          "type": "cusp",
+          "handleIn": {
+            "id": "h-154394",
+            "x": 7.18,
+            "y": 11.57,
+            "baseX": 7.18,
+            "baseY": 11.57
+          },
+          "handleOut": {
+            "id": "h-154395",
+            "x": 11.57,
+            "y": 7.18,
+            "baseX": 11.57,
+            "baseY": 7.18
+          }
+        }
+      ]
+    },
+    {
+      "id": "path-154402",
+      "closed": true,
+      "fill": "#4f7a28",
+      "stroke": "none",
+      "strokeWidth": 0.05,
+      "baseStrokeWidth": 0.05,
+      "fillOpacity": 0.7373417721518987,
+      "baseFillOpacity": 0.7373417721518987,
+      "tx": 0,
+      "baseTx": 0,
+      "ty": 0,
+      "baseTy": 0,
+      "rotation": 0,
+      "baseRotation": 0,
+      "scaleX": 1,
+      "baseScaleX": 1,
+      "scaleY": 1,
+      "baseScaleY": 1,
+      "fillH": 0,
+      "baseFillH": 0,
+      "fillS": 0,
+      "baseFillS": 0,
+      "fillL": 0,
+      "baseFillL": 0,
+      "strokeH": 0,
+      "baseStrokeH": 0,
+      "strokeS": 0,
+      "baseStrokeS": 0,
+      "strokeL": 0,
+      "baseStrokeL": 0,
+      "selected": false,
+      "visible": true,
+      "mirrorSlaveId": null,
+      "mirrorAxis": null,
+      "points": [
+        {
+          "id": "pt-333002",
+          "x": 2.3235407515982374,
+          "y": 102.26696732940101,
+          "baseX": 2.3235407515982374,
+          "baseY": 102.26696732940101,
+          "type": "cusp",
+          "handleIn": {
+            "id": "h-333003",
+            "x": 8.573540751598237,
+            "y": 2.3600000000000017,
+            "baseX": 8.573540751598237,
+            "baseY": 2.3600000000000017
+          },
+          "handleOut": {
+            "id": "h-333004",
+            "x": 4.423540751598239,
+            "y": 6.510000000000001,
+            "baseX": 4.423540751598239,
+            "baseY": 6.510000000000001
+          }
+        },
+        {
+          "id": "pt-333005",
+          "x": 40.08,
+          "y": -10.916459248401761,
+          "baseX": 40.08,
+          "baseY": -10.916459248401761,
+          "type": "cusp",
+          "handleIn": {
+            "id": "h-333006",
+            "x": 9.363540751598237,
+            "y": 11.450000000000001,
+            "baseX": 9.363540751598237,
+            "baseY": 11.450000000000001
+          },
+          "handleOut": {
+            "id": "h-333007",
+            "x": 13.472869455301936,
+            "y": 6.734971064814816,
+            "baseX": 13.472869455301936,
+            "baseY": 6.734971064814816
+          }
+        }
+      ]
+    },
+    {
+      "id": "path-154409",
+      "closed": true,
+      "fill": "#4f7a28",
+      "stroke": "none",
+      "strokeWidth": 0.05,
+      "baseStrokeWidth": 0.05,
+      "fillOpacity": 0.7373417721518987,
+      "baseFillOpacity": 0.7373417721518987,
+      "tx": 0,
+      "baseTx": 0,
+      "ty": 0,
+      "baseTy": 0,
+      "rotation": 0,
+      "baseRotation": 0,
+      "scaleX": 1,
+      "baseScaleX": 1,
+      "scaleY": 1,
+      "baseScaleY": 1,
+      "fillH": 0,
+      "baseFillH": 0,
+      "fillS": 0,
+      "baseFillS": 0,
+      "fillL": 0,
+      "baseFillL": 0,
+      "strokeH": 0,
+      "baseStrokeH": 0,
+      "strokeS": 0,
+      "baseStrokeS": 0,
+      "strokeL": 0,
+      "baseStrokeL": 0,
+      "selected": false,
+      "visible": true,
+      "mirrorSlaveId": null,
+      "mirrorAxis": null,
+      "points": [
+        {
+          "id": "pt-333008",
+          "x": 0,
+          "y": -10.826459248401761,
+          "baseX": 0,
+          "baseY": -10.826459248401761,
+          "type": "cusp",
+          "handleIn": {
+            "id": "h-333009",
+            "x": 26.536459248401762,
+            "y": 7.18,
+            "baseX": 26.536459248401762,
+            "baseY": 7.18
+          },
+          "handleOut": {
+            "id": "h-333010",
+            "x": 30.926459248401763,
+            "y": 11.57,
+            "baseX": 30.926459248401763,
+            "baseY": 11.57
+          }
+        },
+        {
+          "id": "pt-333011",
+          "x": 38.10645924840176,
+          "y": 102.00696732940101,
+          "baseX": 38.10645924840176,
+          "baseY": 102.00696732940101,
+          "type": "cusp",
+          "handleIn": {
+            "id": "h-333012",
+            "x": 36.03645924840176,
+            "y": 6.47,
+            "baseX": 36.03645924840176,
+            "baseY": 6.47
+          },
+          "handleOut": {
+            "id": "h-333013",
+            "x": 31.636459248401763,
+            "y": 2.07,
+            "baseX": 31.636459248401763,
+            "baseY": 2.07
+          }
+        }
+      ]
+    },
+    {
+      "id": "path-182034",
+      "closed": true,
+      "fill": "#450e59",
+      "stroke": "none",
+      "strokeWidth": 0.050632911392405,
+      "baseStrokeWidth": 0.050632911392405,
+      "fillOpacity": 0.7373417721518987,
+      "baseFillOpacity": 0.7373417721518987,
+      "tx": 19.033974331755644,
+      "baseTx": 0,
+      "ty": 0,
+      "baseTy": 0,
+      "rotation": 0,
+      "baseRotation": 0,
+      "scaleX": 1,
+      "baseScaleX": 1,
+      "scaleY": 1,
+      "baseScaleY": 1,
+      "fillH": 102.00696732940101,
+      "baseFillH": 0,
+      "fillS": 0,
+      "baseFillS": 0,
+      "fillL": 14.59844139328349,
+      "baseFillL": 0,
+      "strokeH": 0,
+      "baseStrokeH": 0,
+      "strokeS": 0,
+      "baseStrokeS": 0,
+      "strokeL": 0,
+      "baseStrokeL": 0,
+      "selected": false,
+      "visible": true,
+      "mirrorSlaveId": null,
+      "mirrorAxis": null,
+      "points": [
+        {
+          "id": "pt-333014",
+          "x": 29.170679066712708,
+          "y": 58.86280438617808,
+          "baseX": 29.170679066712708,
+          "baseY": 58.86280438617808,
+          "type": "cusp",
+          "handleIn": {
+            "id": "h-333015",
+            "x": 35.42067906671271,
+            "y": 2.3600000000000017,
+            "baseX": 35.42067906671271,
+            "baseY": 2.3600000000000017
+          },
+          "handleOut": {
+            "id": "h-333016",
+            "x": 31.27067906671271,
+            "y": 6.510000000000001,
+            "baseX": 31.27067906671271,
+            "baseY": 6.510000000000001
+          }
+        },
+        {
+          "id": "pt-333017",
+          "x": 40.08,
+          "y": 15.930679066712706,
+          "baseX": 40.08,
+          "baseY": 15.930679066712706,
+          "type": "cusp",
+          "handleIn": {
+            "id": "h-333018",
+            "x": 36.21067906671271,
+            "y": 11.450000000000001,
+            "baseX": 36.21067906671271,
+            "baseY": 11.450000000000001
+          },
+          "handleOut": {
+            "id": "h-333019",
+            "x": 40.32000777041641,
+            "y": 6.734971064814816,
+            "baseX": 40.32000777041641,
+            "baseY": 6.734971064814816
+          }
+        }
+      ]
+    },
+    {
+      "id": "path-182041",
+      "closed": true,
+      "fill": "#450e59",
+      "stroke": "none",
+      "strokeWidth": 0.050632911392405,
+      "baseStrokeWidth": 0.050632911392405,
+      "fillOpacity": 0.7373417721518987,
+      "baseFillOpacity": 0.7373417721518987,
+      "tx": -19.033974331755644,
+      "baseTx": 0,
+      "ty": 0,
+      "baseTy": 0,
+      "rotation": 0,
+      "baseRotation": 0,
+      "scaleX": 1,
+      "baseScaleX": 1,
+      "scaleY": 1,
+      "baseScaleY": 1,
+      "fillH": 102.00696732940101,
+      "baseFillH": 0,
+      "fillS": 0,
+      "baseFillS": 0,
+      "fillL": 14.59844139328349,
+      "baseFillL": 0,
+      "strokeH": 0,
+      "baseStrokeH": 0,
+      "strokeS": 0,
+      "baseStrokeS": 0,
+      "strokeL": 0,
+      "baseStrokeL": 0,
+      "selected": false,
+      "visible": true,
+      "mirrorSlaveId": null,
+      "mirrorAxis": null,
+      "points": [
+        {
+          "id": "pt-333020",
+          "x": 0,
+          "y": 16.020679066712706,
+          "baseX": 0,
+          "baseY": 16.020679066712706,
+          "type": "cusp",
+          "handleIn": {
+            "id": "h-333021",
+            "x": -0.31067906671270507,
+            "y": 7.18,
+            "baseX": -0.31067906671270507,
+            "baseY": 7.18
+          },
+          "handleOut": {
+            "id": "h-333022",
+            "x": 4.0793209332872955,
+            "y": 11.57,
+            "baseX": 4.0793209332872955,
+            "baseY": 11.57
+          }
+        },
+        {
+          "id": "pt-333023",
+          "x": 11.259320933287295,
+          "y": 58.60280438617808,
+          "baseX": 11.259320933287295,
+          "baseY": 58.60280438617808,
+          "type": "cusp",
+          "handleIn": {
+            "id": "h-333024",
+            "x": 9.189320933287295,
+            "y": 6.47,
+            "baseX": 9.189320933287295,
+            "baseY": 6.47
+          },
+          "handleOut": {
+            "id": "h-333025",
+            "x": 4.7893209332872955,
+            "y": 2.07,
+            "baseX": 4.7893209332872955,
+            "baseY": 2.07
+          }
+        }
+      ]
+    }
+  ],
+  "oscillators": [
+    {
+      "id": "mod-173",
+      "name": "Mod 1",
+      "type": "lfo",
+      "color": "#ffd163",
+      "enabled": true,
+      "waveform": "triangle",
+      "frequency": 0.2,
+      "amplitude": 55,
+      "phase": 0,
+      "offset": -1,
+      "curve": 1.481168831168831,
+      "stepCount": 8,
+      "stepRate": 2,
+      "stepValues": [
+        1,
+        0.5,
+        0,
+        -0.5,
+        -1,
+        -0.5,
+        0,
+        0.5
+      ],
+      "stepAmp": 50,
+      "rwRate": 0.5,
+      "rwSmooth": 0.1,
+      "rwMin": -50,
+      "rwMax": 50,
+      "audioBand": "all",
+      "audioSmooth": 0.8,
+      "audioAmplitude": 100,
+      "expression": "Math.sin(t * 2 * Math.PI) * 50",
+      "trackName": "",
+      "trackBand": "all",
+      "trackSmooth": 0.8,
+      "trackAmplitude": 100,
+      "trackMuted": false,
+      "trackThreshold": 0,
+      "envPoints": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 0.3,
+          "y": 1
+        },
+        {
+          "x": 0.7,
+          "y": 0.6
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "envPeriod": 2,
+      "envAmplitude": 50,
+      "envSmooth": 0,
+      "envLoop": true,
+      "envSnap": false,
+      "deviceSensor": "mouse-x",
+      "deviceScale": 1,
+      "deviceSmooth": 0.1
+    },
+    {
+      "id": "mod-660",
+      "name": "Mod 2",
+      "type": "lfo",
+      "color": "#ff6363",
+      "enabled": true,
+      "waveform": "sine",
+      "frequency": 0.35815064935064866,
+      "amplitude": 1,
+      "phase": 0,
+      "offset": 20,
+      "curve": 1.5824675324675321,
+      "stepCount": 8,
+      "stepRate": 2,
+      "stepValues": [
+        1,
+        0.5,
+        0,
+        -0.5,
+        -1,
+        -0.5,
+        0,
+        0.5
+      ],
+      "stepAmp": 50,
+      "rwRate": 0.5,
+      "rwSmooth": 0.1,
+      "rwMin": -50,
+      "rwMax": 50,
+      "audioBand": "all",
+      "audioSmooth": 0.8,
+      "audioAmplitude": 100,
+      "expression": "Math.sin(t * 2 * Math.PI) * 50",
+      "trackName": "",
+      "trackBand": "all",
+      "trackSmooth": 0.8,
+      "trackAmplitude": 100,
+      "trackMuted": false,
+      "trackThreshold": 0,
+      "envPoints": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 0.3,
+          "y": 1
+        },
+        {
+          "x": 0.7,
+          "y": 0.6
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "envPeriod": 2,
+      "envAmplitude": 50,
+      "envSmooth": 0,
+      "envLoop": true,
+      "envSnap": false,
+      "deviceSensor": "mouse-x",
+      "deviceScale": 1,
+      "deviceSmooth": 0.1
+    },
+    {
+      "id": "mod-670",
+      "name": "Mod 3",
+      "type": "step",
+      "color": "#a0ff63",
+      "enabled": true,
+      "waveform": "sine",
+      "frequency": 0.5,
+      "amplitude": 50,
+      "phase": 0,
+      "offset": 0,
+      "curve": 1,
+      "stepCount": 8,
+      "stepRate": 2,
+      "stepValues": [
+        1,
+        0.5,
+        0,
+        -0.5,
+        1,
+        -0.5,
+        0,
+        0.5
+      ],
+      "stepAmp": 57,
+      "rwRate": 0.5,
+      "rwSmooth": 0.1,
+      "rwMin": -50,
+      "rwMax": 50,
+      "audioBand": "all",
+      "audioSmooth": 0.8,
+      "audioAmplitude": 100,
+      "expression": "Math.sin(t * 2 * Math.PI) * 50",
+      "trackName": "",
+      "trackBand": "all",
+      "trackSmooth": 0.8,
+      "trackAmplitude": 100,
+      "trackMuted": false,
+      "trackThreshold": 0,
+      "envPoints": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 0.3,
+          "y": 1
+        },
+        {
+          "x": 0.7,
+          "y": 0.6
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "envPeriod": 2,
+      "envAmplitude": 50,
+      "envSmooth": 0,
+      "envLoop": true,
+      "envSnap": false,
+      "deviceSensor": "mouse-x",
+      "deviceScale": 1,
+      "deviceSmooth": 0.1
+    },
+    {
+      "id": "mod-730",
+      "name": "Mod 4",
+      "type": "envelope",
+      "color": "#6c63ff",
+      "enabled": true,
+      "waveform": "sine",
+      "frequency": 0.5,
+      "amplitude": 50,
+      "phase": 0,
+      "offset": 0,
+      "curve": 1,
+      "stepCount": 8,
+      "stepRate": 2,
+      "stepValues": [
+        1,
+        0.5,
+        0,
+        -0.5,
+        -1,
+        -0.5,
+        0,
+        0.5
+      ],
+      "stepAmp": 50,
+      "rwRate": 0.5,
+      "rwSmooth": 0.1,
+      "rwMin": -50,
+      "rwMax": 50,
+      "audioBand": "all",
+      "audioSmooth": 0.8,
+      "audioAmplitude": 100,
+      "expression": "Math.sin(t * 2 * Math.PI) * 50",
+      "trackName": "",
+      "trackBand": "all",
+      "trackSmooth": 0.8,
+      "trackAmplitude": 100,
+      "trackMuted": false,
+      "trackThreshold": 0,
+      "envPoints": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 0.3,
+          "y": 1
+        },
+        {
+          "x": 0.41508152173913043,
+          "y": 0.23333333333333328
+        },
+        {
+          "x": 1,
+          "y": 0
+        },
+        {
+          "x": 0.5905797101449276,
+          "y": 1
+        }
+      ],
+      "envPeriod": 1.2220779220779185,
+      "envAmplitude": 17,
+      "envSmooth": 0,
+      "envLoop": true,
+      "envSnap": false,
+      "deviceSensor": "mouse-x",
+      "deviceScale": 1,
+      "deviceSmooth": 0.1
+    },
+    {
+      "id": "mod-733",
+      "name": "Mod 5",
+      "type": "randomwalk",
+      "color": "#a0ff63",
+      "enabled": true,
+      "waveform": "sine",
+      "frequency": 0.5,
+      "amplitude": 50,
+      "phase": 0,
+      "offset": 0,
+      "curve": 1,
+      "stepCount": 8,
+      "stepRate": 2,
+      "stepValues": [
+        1,
+        0.5,
+        0,
+        -0.5,
+        -1,
+        -0.5,
+        0,
+        0.5
+      ],
+      "stepAmp": 50,
+      "rwRate": 0.5,
+      "rwSmooth": 0.7005999999999999,
+      "rwMin": -37,
+      "rwMax": 183,
+      "audioBand": "all",
+      "audioSmooth": 0.8,
+      "audioAmplitude": 100,
+      "expression": "Math.sin(t * 2 * Math.PI) * 50",
+      "trackName": "",
+      "trackBand": "all",
+      "trackSmooth": 0.8,
+      "trackAmplitude": 100,
+      "trackMuted": false,
+      "trackThreshold": 0,
+      "envPoints": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 0.3,
+          "y": 1
+        },
+        {
+          "x": 0.7,
+          "y": 0.6
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "envPeriod": 2,
+      "envAmplitude": 50,
+      "envSmooth": 0,
+      "envLoop": true,
+      "envSnap": false,
+      "deviceSensor": "mouse-x",
+      "deviceScale": 1,
+      "deviceSmooth": 0.1
+    }
+  ],
+  "bindings": [
+    {
+      "id": "bind-326",
+      "oscillatorId": "mod-173",
+      "target": {
+        "pathId": "path-196",
+        "pointIndex": 0,
+        "handleRole": null,
+        "property": "x"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-327",
+      "oscillatorId": "mod-173",
+      "target": {
+        "pathId": "path-196",
+        "pointIndex": 0,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-330",
+      "oscillatorId": "mod-173",
+      "target": {
+        "pathId": "path-216",
+        "pointIndex": 1,
+        "handleRole": null,
+        "property": "x"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-331",
+      "oscillatorId": "mod-173",
+      "target": {
+        "pathId": "path-216",
+        "pointIndex": 1,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-332",
+      "oscillatorId": "mod-173",
+      "target": {
+        "pathId": "path-226",
+        "pointIndex": 1,
+        "handleRole": null,
+        "property": "x"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-333",
+      "oscillatorId": "mod-173",
+      "target": {
+        "pathId": "path-226",
+        "pointIndex": 1,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-334",
+      "oscillatorId": "mod-173",
+      "target": {
+        "pathId": "path-206",
+        "pointIndex": 1,
+        "handleRole": null,
+        "property": "x"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-335",
+      "oscillatorId": "mod-173",
+      "target": {
+        "pathId": "path-206",
+        "pointIndex": 1,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-661",
+      "oscillatorId": "mod-660",
+      "target": {
+        "pathId": "path-206",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "tx"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-662",
+      "oscillatorId": "mod-660",
+      "target": {
+        "pathId": "path-196",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "tx"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-663",
+      "oscillatorId": "mod-660",
+      "target": {
+        "pathId": "path-216",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "tx"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-664",
+      "oscillatorId": "mod-660",
+      "target": {
+        "pathId": "path-226",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "tx"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-665",
+      "oscillatorId": "mod-660",
+      "target": {
+        "pathId": "path-226",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "ty"
+      },
+      "scale": 2
+    },
+    {
+      "id": "bind-666",
+      "oscillatorId": "mod-660",
+      "target": {
+        "pathId": "path-216",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "ty"
+      },
+      "scale": 2
+    },
+    {
+      "id": "bind-667",
+      "oscillatorId": "mod-660",
+      "target": {
+        "pathId": "path-196",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "ty"
+      },
+      "scale": -2
+    },
+    {
+      "id": "bind-668",
+      "oscillatorId": "mod-660",
+      "target": {
+        "pathId": "path-206",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "ty"
+      },
+      "scale": -2
+    },
+    {
+      "id": "bind-671",
+      "oscillatorId": "mod-670",
+      "target": {
+        "pathId": "path-196",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "rotation"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-672",
+      "oscillatorId": "mod-670",
+      "target": {
+        "pathId": "path-206",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "rotation"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-675",
+      "oscillatorId": "mod-670",
+      "target": {
+        "pathId": "path-206",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "fillL"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-676",
+      "oscillatorId": "mod-670",
+      "target": {
+        "pathId": "path-196",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "fillL"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-679",
+      "oscillatorId": "mod-670",
+      "target": {
+        "pathId": "path-196",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "fillH"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-680",
+      "oscillatorId": "mod-670",
+      "target": {
+        "pathId": "path-206",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "fillH"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-684",
+      "oscillatorId": "mod-682",
+      "target": {
+        "pathId": "path-206",
+        "pointIndex": 0,
+        "handleRole": null,
+        "property": "x"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-687",
+      "oscillatorId": "mod-682",
+      "target": {
+        "pathId": "path-196",
+        "pointIndex": 1,
+        "handleRole": null,
+        "property": "x"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-731",
+      "oscillatorId": "mod-730",
+      "target": {
+        "pathId": "path-206",
+        "pointIndex": 0,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-732",
+      "oscillatorId": "mod-730",
+      "target": {
+        "pathId": "path-196",
+        "pointIndex": 1,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-734",
+      "oscillatorId": "mod-733",
+      "target": {
+        "pathId": "path-196",
+        "pointIndex": 1,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-781",
+      "oscillatorId": "mod-733",
+      "target": {
+        "pathId": "path-206",
+        "pointIndex": 0,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-27828",
+      "oscillatorId": "mod-733",
+      "target": {
+        "pathId": "path-196",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "fillH"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-27829",
+      "oscillatorId": "mod-733",
+      "target": {
+        "pathId": "path-206",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "fillH"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-34924",
+      "oscillatorId": "mod-733",
+      "target": {
+        "pathId": "path-28821",
+        "pointIndex": 0,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-34925",
+      "oscillatorId": "mod-733",
+      "target": {
+        "pathId": "path-27830",
+        "pointIndex": 0,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-41106",
+      "oscillatorId": "mod-670",
+      "target": {
+        "pathId": "path-27830",
+        "pointIndex": 0,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-41107",
+      "oscillatorId": "mod-670",
+      "target": {
+        "pathId": "path-28821",
+        "pointIndex": 0,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-53768",
+      "oscillatorId": "mod-670",
+      "target": {
+        "pathId": "path-28821",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "rotation"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-53769",
+      "oscillatorId": "mod-670",
+      "target": {
+        "pathId": "path-27830",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "rotation"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-56218",
+      "oscillatorId": "mod-660",
+      "target": {
+        "pathId": "path-27830",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "tx"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-56219",
+      "oscillatorId": "mod-660",
+      "target": {
+        "pathId": "path-28821",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "tx"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-57072",
+      "oscillatorId": "mod-173",
+      "target": {
+        "pathId": "path-28821",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "ty"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-57073",
+      "oscillatorId": "mod-173",
+      "target": {
+        "pathId": "path-27830",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "ty"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-156396",
+      "oscillatorId": "mod-660",
+      "target": {
+        "pathId": "path-151700",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "rotation"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-156397",
+      "oscillatorId": "mod-660",
+      "target": {
+        "pathId": "path-151707",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "rotation"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-161210",
+      "oscillatorId": "mod-730",
+      "target": {
+        "pathId": "path-151700",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "strokeWidth"
+      },
+      "scale": 0.1
+    },
+    {
+      "id": "bind-161211",
+      "oscillatorId": "mod-730",
+      "target": {
+        "pathId": "path-151707",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "strokeWidth"
+      },
+      "scale": 0.1
+    },
+    {
+      "id": "bind-165112",
+      "oscillatorId": "mod-730",
+      "target": {
+        "pathId": "path-151700",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "strokeL"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-165113",
+      "oscillatorId": "mod-730",
+      "target": {
+        "pathId": "path-151707",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "strokeL"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-185528",
+      "oscillatorId": "mod-660",
+      "target": {
+        "pathId": "path-182034",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "tx"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-185529",
+      "oscillatorId": "mod-660",
+      "target": {
+        "pathId": "path-182041",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "tx"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-187450",
+      "oscillatorId": "mod-670",
+      "target": {
+        "pathId": "path-182041",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "tx"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-187451",
+      "oscillatorId": "mod-670",
+      "target": {
+        "pathId": "path-182034",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "tx"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-202548",
+      "oscillatorId": "mod-730",
+      "target": {
+        "pathId": "path-182034",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "fillH"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-202549",
+      "oscillatorId": "mod-730",
+      "target": {
+        "pathId": "path-182041",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "fillH"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-204158",
+      "oscillatorId": "mod-730",
+      "target": {
+        "pathId": "path-182041",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "fillL"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-204159",
+      "oscillatorId": "mod-730",
+      "target": {
+        "pathId": "path-182034",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "fillL"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-206056",
+      "oscillatorId": "mod-733",
+      "target": {
+        "pathId": "path-182034",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "fillH"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-206057",
+      "oscillatorId": "mod-733",
+      "target": {
+        "pathId": "path-182041",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "fillH"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-218874",
+      "oscillatorId": "mod-173",
+      "target": {
+        "pathId": "path-151700",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "rotation"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-218875",
+      "oscillatorId": "mod-173",
+      "target": {
+        "pathId": "path-151707",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "rotation"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-244892",
+      "oscillatorId": "mod-173",
+      "target": {
+        "pathId": "path-182034",
+        "pointIndex": 0,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-244893",
+      "oscillatorId": "mod-173",
+      "target": {
+        "pathId": "path-182041",
+        "pointIndex": 0,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-249238",
+      "oscillatorId": "mod-173",
+      "target": {
+        "pathId": "path-182041",
+        "pointIndex": 1,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-249239",
+      "oscillatorId": "mod-173",
+      "target": {
+        "pathId": "path-182034",
+        "pointIndex": 1,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-302664",
+      "oscillatorId": "mod-730",
+      "target": {
+        "pathId": "path-182034",
+        "pointIndex": 0,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-302665",
+      "oscillatorId": "mod-730",
+      "target": {
+        "pathId": "path-182041",
+        "pointIndex": 0,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": 1
+    }
+  ],
+  "viewBox": {
+    "x": 0,
+    "y": 0,
+    "w": 40.15,
+    "h": 40.27
+  },
+  "timestamp": "2026-04-26T10:43:33.542Z"
+}

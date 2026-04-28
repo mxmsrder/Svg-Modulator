@@ -1,25 +1,159 @@
 {
   "version": "1.1",
   "type": "svg-oscillator-sketch",
-  "name": "Starter",
-  "timestamp": "2026-04-21T00:00:00Z",
-  "paths": [],
+  "paths": [
+    {
+      "id": "path-31",
+      "closed": true,
+      "fill": "none",
+      "stroke": "#ff2600",
+      "strokeWidth": 243.91433987968722,
+      "baseStrokeWidth": 0,
+      "fillOpacity": 260.3988483062489,
+      "baseFillOpacity": 1,
+      "tx": 0,
+      "baseTx": 0,
+      "ty": 50.166805362921906,
+      "baseTy": 0,
+      "rotation": 22,
+      "baseRotation": 0,
+      "scaleX": 1,
+      "baseScaleX": 1,
+      "scaleY": 1,
+      "baseScaleY": 1,
+      "fillH": 387.1000422744218,
+      "baseFillH": 0,
+      "fillS": 0,
+      "baseFillS": 0,
+      "fillL": 0,
+      "baseFillL": 0,
+      "strokeH": 259.3988483062489,
+      "baseStrokeH": 0,
+      "strokeS": 0,
+      "baseStrokeS": 0,
+      "strokeL": 149.7011939681729,
+      "baseStrokeL": 0,
+      "selected": false,
+      "visible": true,
+      "mirrorSlaveId": null,
+      "mirrorAxis": null,
+      "points": [
+        {
+          "id": "pt-40",
+          "x": 846.127079856474,
+          "y": 354.6526069347547,
+          "baseX": 520.5888075983376,
+          "baseY": 354.6526069347547,
+          "type": "smooth",
+          "handleIn": {
+            "id": "h-42",
+            "x": 450,
+            "y": 139.54000000000002,
+            "baseX": 450,
+            "baseY": 139.54000000000002
+          },
+          "handleOut": {
+            "id": "h-41",
+            "x": 450,
+            "y": 360.4600000000001,
+            "baseX": 450,
+            "baseY": 360.4600000000001
+          }
+        },
+        {
+          "id": "pt-37",
+          "x": 488.0239319069925,
+          "y": 867.1417132019149,
+          "baseX": 488.0239319069925,
+          "baseY": 541.6034409437784,
+          "type": "symmetric",
+          "handleIn": {
+            "id": "h-39",
+            "x": 360.46000000000004,
+            "y": 450.00000000000006,
+            "baseX": 360.46000000000004,
+            "baseY": 450.00000000000006
+          },
+          "handleOut": {
+            "id": "h-38",
+            "x": 139.53999999999996,
+            "y": 450.00000000000006,
+            "baseX": 139.53999999999996,
+            "baseY": 450.00000000000006
+          }
+        },
+        {
+          "id": "pt-34",
+          "x": -346.1270798564741,
+          "y": 145.3473930652454,
+          "baseX": -20.588807598337667,
+          "baseY": 145.3473930652454,
+          "type": "symmetric",
+          "handleIn": {
+            "id": "h-36",
+            "x": 50,
+            "y": 360.4600000000001,
+            "baseX": 50,
+            "baseY": 360.4600000000001
+          },
+          "handleOut": {
+            "id": "h-35",
+            "x": 50,
+            "y": 139.54000000000002,
+            "baseX": 50,
+            "baseY": 139.54000000000002
+          }
+        },
+        {
+          "id": "pt-32",
+          "x": 11.976068093007484,
+          "y": -367.14171320191485,
+          "baseX": 11.976068093007484,
+          "baseY": -41.60344094377842,
+          "type": "symmetric",
+          "handleIn": {
+            "id": "h-33",
+            "x": 139.53999999999996,
+            "y": 50.00000000000006,
+            "baseX": 139.53999999999996,
+            "baseY": 50.00000000000006
+          },
+          "handleOut": {
+            "id": "h-44",
+            "x": 360.46000000000004,
+            "y": 50.00000000000006,
+            "baseX": 360.46000000000004,
+            "baseY": 50.00000000000006
+          }
+        }
+      ]
+    }
+  ],
   "oscillators": [
     {
-      "id": "mod-starter-lfo1",
+      "id": "mod-47",
       "name": "LFO 1",
       "type": "lfo",
-      "color": "#6c63ff",
+      "color": "#ff63d4",
       "enabled": true,
       "waveform": "sine",
       "frequency": 0.5,
-      "amplitude": 50,
+      "amplitude": 200,
       "phase": 0,
-      "offset": 0,
+      "offset": -200,
       "curve": 1,
       "stepCount": 8,
       "stepRate": 2,
-      "stepValues": [1, 0.5, 0, -0.5, -1, -0.5, 0, 0.5],
+      "stepValues": [
+        1,
+        0.5,
+        0,
+        -0.5,
+        -1,
+        -0.5,
+        0,
+        0.5
+      ],
       "stepAmp": 50,
       "rwRate": 0.5,
       "rwSmooth": 0.1,
@@ -32,9 +166,489 @@
       "trackName": "",
       "trackBand": "all",
       "trackSmooth": 0.8,
-      "trackAmplitude": 100
+      "trackAmplitude": 100,
+      "trackMuted": false,
+      "trackThreshold": 0,
+      "envPoints": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 0.3,
+          "y": 1
+        },
+        {
+          "x": 0.7,
+          "y": 0.6
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "envPeriod": 2,
+      "envAmplitude": 50,
+      "envSmooth": 0,
+      "envLoop": true,
+      "envSnap": false,
+      "deviceSensor": "mouse-x",
+      "deviceScale": 1,
+      "deviceSmooth": 0.1
+    },
+    {
+      "id": "mod-54",
+      "name": "LFO 2",
+      "type": "step",
+      "color": "#63d4ff",
+      "enabled": true,
+      "waveform": "sine",
+      "frequency": 0.5,
+      "amplitude": 50,
+      "phase": 0,
+      "offset": 0,
+      "curve": 1,
+      "stepCount": 7,
+      "stepRate": 8,
+      "stepValues": [
+        1,
+        0.5,
+        0,
+        -0.5,
+        -0.06666666666666665,
+        0.36666666666666664,
+        1,
+        0.5,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "stepAmp": 44,
+      "rwRate": 0.5,
+      "rwSmooth": 0.1,
+      "rwMin": -50,
+      "rwMax": 50,
+      "audioBand": "all",
+      "audioSmooth": 0.8,
+      "audioAmplitude": 100,
+      "expression": "Math.sin(t * 2 * Math.PI) * 50",
+      "trackName": "",
+      "trackBand": "all",
+      "trackSmooth": 0.8,
+      "trackAmplitude": 100,
+      "trackMuted": false,
+      "trackThreshold": 0,
+      "envPoints": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 0.3,
+          "y": 1
+        },
+        {
+          "x": 0.7,
+          "y": 0.6
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "envPeriod": 2,
+      "envAmplitude": 50,
+      "envSmooth": 0,
+      "envLoop": true,
+      "envSnap": false,
+      "deviceSensor": "mouse-x",
+      "deviceScale": 1,
+      "deviceSmooth": 0.1
+    },
+    {
+      "id": "mod-70",
+      "name": "LFO 3",
+      "type": "envelope",
+      "color": "#ff63d4",
+      "enabled": true,
+      "waveform": "sine",
+      "frequency": 0.5,
+      "amplitude": 50,
+      "phase": 0,
+      "offset": 0,
+      "curve": 1,
+      "stepCount": 8,
+      "stepRate": 2,
+      "stepValues": [
+        1,
+        0.5,
+        0,
+        -0.5,
+        -1,
+        -0.5,
+        0,
+        0.5
+      ],
+      "stepAmp": 50,
+      "rwRate": 0.5,
+      "rwSmooth": 0.1,
+      "rwMin": -50,
+      "rwMax": 50,
+      "audioBand": "all",
+      "audioSmooth": 0.8,
+      "audioAmplitude": 100,
+      "expression": "Math.sin(t * 2 * Math.PI) * Math.sin(t * 4 * Math.PI) * 60",
+      "trackName": "",
+      "trackBand": "all",
+      "trackSmooth": 0.8,
+      "trackAmplitude": 100,
+      "trackMuted": false,
+      "trackThreshold": 0,
+      "envPoints": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 0.3,
+          "y": 1
+        },
+        {
+          "x": 0.7,
+          "y": 0.6
+        },
+        {
+          "x": 1,
+          "y": 0
+        },
+        {
+          "x": 0.5,
+          "y": 0.25
+        },
+        {
+          "x": 0.6996450754214729,
+          "y": 0.8333333333333334
+        }
+      ],
+      "envPeriod": 34.224683544303794,
+      "envAmplitude": 50,
+      "envSmooth": 0,
+      "envLoop": true,
+      "envSnap": false,
+      "deviceSensor": "mouse-x",
+      "deviceScale": 1,
+      "deviceSmooth": 0.1
+    },
+    {
+      "id": "mod-48296",
+      "name": "LFO 4",
+      "type": "lfo",
+      "color": "#63ffa0",
+      "enabled": true,
+      "waveform": "sine",
+      "frequency": 1.401012658227847,
+      "amplitude": 211,
+      "phase": 0,
+      "offset": 0,
+      "curve": 1,
+      "stepCount": 8,
+      "stepRate": 2,
+      "stepValues": [
+        1,
+        0.5,
+        0,
+        -0.5,
+        -1,
+        -0.5,
+        0,
+        0.5
+      ],
+      "stepAmp": 50,
+      "rwRate": 0.5,
+      "rwSmooth": 0.1,
+      "rwMin": -50,
+      "rwMax": 50,
+      "audioBand": "all",
+      "audioSmooth": 0.8,
+      "audioAmplitude": 100,
+      "expression": "Math.sin(t * 2 * Math.PI) * 50",
+      "trackName": "",
+      "trackBand": "all",
+      "trackSmooth": 0.8,
+      "trackAmplitude": 100,
+      "trackMuted": false,
+      "trackThreshold": 0,
+      "envPoints": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 0.3,
+          "y": 1
+        },
+        {
+          "x": 0.7,
+          "y": 0.6
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "envPeriod": 2,
+      "envAmplitude": 50,
+      "envSmooth": 0,
+      "envLoop": true,
+      "envSnap": false,
+      "deviceSensor": "mouse-x",
+      "deviceScale": 1,
+      "deviceSmooth": 0.1
+    },
+    {
+      "id": "mod-48312",
+      "name": "LFO 5",
+      "type": "device",
+      "color": "#a0ff63",
+      "enabled": true,
+      "waveform": "sine",
+      "frequency": 0.5,
+      "amplitude": 50,
+      "phase": 0,
+      "offset": 0,
+      "curve": 1,
+      "stepCount": 8,
+      "stepRate": 2,
+      "stepValues": [
+        1,
+        0.5,
+        0,
+        -0.5,
+        -1,
+        -0.5,
+        0,
+        0.5
+      ],
+      "stepAmp": 50,
+      "rwRate": 0.5,
+      "rwSmooth": 0.1,
+      "rwMin": -50,
+      "rwMax": 50,
+      "audioBand": "all",
+      "audioSmooth": 0.8,
+      "audioAmplitude": 100,
+      "expression": "Math.sin(t * 2 * Math.PI) * 50",
+      "trackName": "",
+      "trackBand": "all",
+      "trackSmooth": 0.8,
+      "trackAmplitude": 100,
+      "trackMuted": false,
+      "trackThreshold": 0,
+      "envPoints": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 0.3,
+          "y": 1
+        },
+        {
+          "x": 0.7,
+          "y": 0.6
+        },
+        {
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "envPeriod": 2,
+      "envAmplitude": 50,
+      "envSmooth": 0,
+      "envLoop": true,
+      "envSnap": false,
+      "deviceSensor": "clock",
+      "deviceScale": 13.658227848101266,
+      "deviceSmooth": 0.1
     }
   ],
-  "bindings": [],
-  "viewBox": { "x": 0, "y": 0, "w": 500, "h": 500 }
+  "bindings": [
+    {
+      "id": "bind-50",
+      "oscillatorId": "mod-47",
+      "target": {
+        "pathId": "path-31",
+        "pointIndex": 2,
+        "handleRole": null,
+        "property": "x"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-51",
+      "oscillatorId": "mod-47",
+      "target": {
+        "pathId": "path-31",
+        "pointIndex": 1,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-52",
+      "oscillatorId": "mod-47",
+      "target": {
+        "pathId": "path-31",
+        "pointIndex": 0,
+        "handleRole": null,
+        "property": "x"
+      },
+      "scale": -1
+    },
+    {
+      "id": "bind-53",
+      "oscillatorId": "mod-47",
+      "target": {
+        "pathId": "path-31",
+        "pointIndex": 3,
+        "handleRole": null,
+        "property": "y"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-74",
+      "oscillatorId": "mod-54",
+      "target": {
+        "pathId": "path-31",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "strokeWidth"
+      },
+      "scale": 9.806706114398423
+    },
+    {
+      "id": "bind-48289",
+      "oscillatorId": "mod-54",
+      "target": {
+        "pathId": "path-31",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "strokeL"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-48293",
+      "oscillatorId": "mod-70",
+      "target": {
+        "pathId": "path-31",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "ty"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-48299",
+      "oscillatorId": "mod-48296",
+      "target": {
+        "pathId": "path-31",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "fillH"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-48301",
+      "oscillatorId": "mod-48296",
+      "target": {
+        "pathId": "path-31",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "strokeL"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-48304",
+      "oscillatorId": "mod-70",
+      "target": {
+        "pathId": "path-31",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "strokeWidth"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-48306",
+      "oscillatorId": "mod-54",
+      "target": {
+        "pathId": "path-31",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "rotation"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-48310",
+      "oscillatorId": "mod-54",
+      "target": {
+        "pathId": "path-31",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "ty"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-48314",
+      "oscillatorId": "mod-48312",
+      "target": {
+        "pathId": "path-31",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "fillH"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-48318",
+      "oscillatorId": "mod-48312",
+      "target": {
+        "pathId": "path-31",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "fillOpacity"
+      },
+      "scale": 1
+    },
+    {
+      "id": "bind-48323",
+      "oscillatorId": "mod-48312",
+      "target": {
+        "pathId": "path-31",
+        "pointIndex": null,
+        "handleRole": null,
+        "property": "strokeH"
+      },
+      "scale": 1
+    }
+  ],
+  "viewBox": {
+    "x": 0,
+    "y": 0,
+    "w": 500,
+    "h": 500
+  },
+  "timestamp": "2026-04-21T15:51:19.769Z"
 }
