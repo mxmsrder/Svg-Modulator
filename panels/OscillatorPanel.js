@@ -60,7 +60,6 @@ export class OscillatorPanel {
     card.className = 'osc-card';
     if (!osc.enabled) card.classList.add('osc-disabled');
     card.dataset.oscId = osc.id;
-    card.style.borderLeftColor = osc.color;
 
     // Header: enable toggle + color dot + name + type selector + delete
     const header = document.createElement('div');
@@ -89,7 +88,6 @@ export class OscillatorPanel {
       const idx = colors.indexOf(osc.color);
       osc.color = colors[(idx + 1) % colors.length];
       colorDot.style.background = osc.color;
-      card.style.borderLeftColor = osc.color;
       this.onChange();
     });
     header.appendChild(colorDot);
@@ -171,7 +169,6 @@ export class OscillatorPanel {
 
     const typeToggle = document.createElement('button');
     typeToggle.className = 'osc-type-toggle';
-    typeToggle.style.borderLeftColor = osc.color;
     typeToggle.innerHTML = `<span class="osc-type-cur">${TYPE_LABELS[osc.type]}</span><span class="osc-type-arrow">▾</span>`;
     typeWrap.appendChild(typeToggle);
 
@@ -759,9 +756,16 @@ export class OscillatorPanel {
 
     const params = document.createElement('div');
     params.className = 'osc-params';
+    sliders.envRate = new BoxSlider(params, {
+      label: 'Rate', unit: '/beat', min: 0, max: 8, step: 0.0625, value: osc.envRate,
+      color: osc.color,
+      onDragStart: () => this.pushHistory(),
+      onChange: v => { osc.envRate = v; this.onChange(); },
+    });
     sliders.envPeriod = new BoxSlider(params, {
       label: 'Period', unit: 's', min: 0.1, max: 60, step: 0, value: osc.envPeriod,
       color: osc.color,
+      onDragStart: () => this.pushHistory(),
       onChange: v => { osc.envPeriod = v; this.onChange(); },
     });
     sliders.envAmp = new BoxSlider(params, {
@@ -951,15 +955,29 @@ export class OscillatorPanel {
     sensorRow.style.paddingBottom = '4px';
 
     const SENSORS = [
-      ['mouse-x',           'Mouse X (0-100)'],
-      ['mouse-y',           'Mouse Y (0-100)'],
-      ['battery',           'Battery (0-100%)'],
-      ['clock',             'Clock (0-59 sec)'],
-      ['orientation-alpha', 'Orient α (0-360°)'],
-      ['orientation-beta',  'Orient β (±180°)'],
-      ['orientation-gamma', 'Orient γ (±90°)'],
-      ['lid-angle',         'Lid / Hinge (°)'],
-      ['light',             'Ambient Light (lux)'],
+      // Desktop
+      ['mouse-x',              'Mouse X (0-100)'],
+      ['mouse-y',              'Mouse Y (0-100)'],
+      ['battery',              'Battery (0-100%)'],
+      ['clock',                'Clock (0-59 sec)'],
+      ['light',                'Ambient Light (lux)'],
+      // Phone via WebSocket bridge (server.js)
+      ['phone-orient-alpha',   'Phone: Compass/Yaw (0-360°)'],
+      ['phone-orient-beta',    'Phone: Front/Back tilt (±180°)'],
+      ['phone-orient-gamma',   'Phone: Left/Right tilt (±90°)'],
+      ['phone-accel-x',        'Phone: Accel X (m/s²)'],
+      ['phone-accel-y',        'Phone: Accel Y (m/s²)'],
+      ['phone-accel-z',        'Phone: Accel Z (m/s²)'],
+      ['phone-gravity-x',      'Phone: Gravity X (m/s²)'],
+      ['phone-gravity-y',      'Phone: Gravity Y (m/s²)'],
+      ['phone-gravity-z',      'Phone: Gravity Z (m/s²)'],
+      ['phone-rotation-alpha', 'Phone: Gyro Yaw (°/s)'],
+      ['phone-rotation-beta',  'Phone: Gyro Pitch (°/s)'],
+      ['phone-rotation-gamma', 'Phone: Gyro Roll (°/s)'],
+      ['phone-battery',        'Phone: Battery (0-100%)'],
+      ['phone-touch',          'Phone: Touch (0/1)'],
+      ['phone-gps-speed',      'Phone: GPS Speed (m/s)'],
+      ['phone-gps-altitude',   'Phone: GPS Altitude (m)'],
     ];
     const sel = document.createElement('select');
     sel.style.flex = '1';
@@ -975,9 +993,23 @@ export class OscillatorPanel {
       osc._deviceRaw    = 0;
       osc._deviceLevel  = 0;
       await osc.initDevice?.();
+      infoBtn.style.display = e.target.value.startsWith('phone-') ? '' : 'none';
       this.onChange();
     });
     sensorRow.appendChild(sel);
+
+    // Info button for phone sensors
+    const infoBtn = document.createElement('button');
+    infoBtn.className = 'osc-info-btn';
+    infoBtn.textContent = 'ℹ';
+    infoBtn.title = 'How to connect iPhone';
+    infoBtn.style.display = osc.deviceSensor.startsWith('phone-') ? '' : 'none';
+    infoBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._showPhoneInfo(infoBtn);
+    });
+    sensorRow.appendChild(infoBtn);
+
     body.appendChild(sensorRow);
 
     const params = document.createElement('div');
@@ -1006,5 +1038,39 @@ export class OscillatorPanel {
     } else {
       lv.textContent = osc._deviceLevel.toFixed(1);
     }
+  }
+
+  _showPhoneInfo(anchorEl) {
+    // Remove any existing popover
+    document.querySelector('.phone-info-popover')?.remove();
+
+    const host = location.hostname || 'your-ip';
+    const url  = `https://${host}:3443/phone.html`;
+
+    const pop = document.createElement('div');
+    pop.className = 'phone-info-popover';
+    pop.innerHTML = `
+      <div class="pip-title">Connect iPhone</div>
+      <div class="pip-step">1. On your computer, run:<br><code>node server.js</code></div>
+      <div class="pip-step">2. Open on iPhone (Safari):<br><a class="pip-url" href="${url}" target="_blank">${url}</a></div>
+      <div class="pip-step">3. Tap <b>Start Sharing</b> and allow sensor access.</div>
+      <div class="pip-step">4. Both devices must be on the same Wi-Fi.</div>
+      <button class="pip-close">✕</button>
+    `;
+    pop.querySelector('.pip-close').addEventListener('click', () => pop.remove());
+    document.body.appendChild(pop);
+
+    // Position near the anchor
+    const rect = anchorEl.getBoundingClientRect();
+    pop.style.top  = (rect.bottom + 6) + 'px';
+    pop.style.left = Math.max(8, rect.left - 160) + 'px';
+
+    // Close on outside click
+    setTimeout(() => {
+      const close = (e) => {
+        if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener('click', close); }
+      };
+      document.addEventListener('click', close);
+    }, 0);
   }
 }

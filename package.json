@@ -1,0 +1,12 @@
+{
+  "name": "svg-oscillator-editor",
+  "version": "0.2.0",
+  "description": "SVG path animation editor with oscillator-based modulation",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

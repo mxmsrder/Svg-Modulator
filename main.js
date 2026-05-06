@@ -81,7 +81,19 @@ function restorePathsFromData(data) {
   }
 }
 
-function pushHistory() { history.push(snapshotAll()); }
+const AUTOSAVE_KEY = 'svg-osc-autosave';
+let _autoSaveTimer = null;
+function scheduleAutoSave() {
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(() => {
+    try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(serializeFullState())); } catch {}
+  }, 1500);
+}
+
+function pushHistory() {
+  history.push(snapshotAll());
+  scheduleAutoSave();
+}
 
 function applyUndo() {
   if (!history.canUndo()) return;
@@ -456,15 +468,30 @@ function newCanvas() {
   oscPanel.render();
 }
 
+// ── Auto-save on page hide (iOS switches app → page stays alive but hidden) ──
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(serializeFullState())); } catch {}
+  }
+});
+window.addEventListener('beforeunload', () => {
+  try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(serializeFullState())); } catch {}
+});
+
 // ── Startup ───────────────────────────────────────────
 
 async function startup() {
   await new Promise(r => requestAnimationFrame(r));
-  // Load base shapes (no LFO clutter at startup)
+  // Restore last autosave if present
+  try {
+    const saved = localStorage.getItem(AUTOSAVE_KEY);
+    if (saved) { restoreFullState(JSON.parse(saved)); return; }
+  } catch {}
+  // Otherwise load base shapes
   try {
     const resp = await fetch('./svg-library/base-shapes.svg');
     if (resp.ok) { loadSVG(await resp.text()); }
-  } catch(e) { /* ignore */ }
+  } catch {}
 }
 startup();
 
@@ -829,14 +856,32 @@ function _rebuildHistoryList() {
     return;
   }
   for (const s of saves) {
+    const row = document.createElement('div');
+    row.className = 'save-row';
+
     const btn = document.createElement('button');
+    btn.className = 'save-row-btn';
     btn.textContent = s.name;
     btn.title = new Date(s.ts).toLocaleString();
     btn.addEventListener('click', () => {
       document.getElementById('load-btn').closest('.dropdown').classList.remove('open');
       try { restoreFullState(s.data); } catch(e) { alert('Load failed'); }
     });
-    histEl.appendChild(btn);
+
+    const del = document.createElement('button');
+    del.className = 'save-row-del';
+    del.textContent = '×';
+    del.title = 'Remove this save';
+    del.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const updated = getSaves().filter(x => x.ts !== s.ts);
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify(updated)); } catch {}
+      _rebuildHistoryList();
+    });
+
+    row.appendChild(btn);
+    row.appendChild(del);
+    histEl.appendChild(row);
   }
 }
 

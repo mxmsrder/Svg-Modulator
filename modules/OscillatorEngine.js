@@ -28,7 +28,7 @@ function pseudoRandom(n) {
 function lerp(a, b, t) { return a + (b - a) * t; }
 
 export const WAVEFORM_NAMES = Object.keys(WAVEFORMS);
-export const MODULATOR_TYPES = ['lfo', 'step', 'randomwalk', 'audio', 'expression', 'track', 'envelope', 'device'];
+export const MODULATOR_TYPES = ['lfo', 'step', 'envelope', 'audio', 'track', 'expression', 'randomwalk', 'device'];
 
 // ────────────────────────────────────────────────────
 // Modulator (supports all types)
@@ -98,7 +98,8 @@ export class Oscillator {
 
     // ── Envelope params ──────────────────────────────
     this.envPoints    = params.envPoints    ?? [{x:0,y:0},{x:0.3,y:1},{x:0.7,y:0.6},{x:1,y:0}];
-    this.envPeriod    = params.envPeriod    ?? 2;      // seconds per cycle
+    this.envPeriod    = params.envPeriod    ?? 2;      // seconds per cycle (when envRate===0)
+    this.envRate      = params.envRate      ?? 0;      // cycles per beat (0 = use envPeriod)
     this.envAmplitude = params.envAmplitude ?? 50;
     this.envSmooth    = params.envSmooth    ?? 0;      // 0=linear, 1=cubic-smooth
     this.envLoop      = params.envLoop      ?? true;
@@ -113,17 +114,12 @@ export class Oscillator {
     this._deviceStatus = null; // error/status string for display
     this._batteryMgr   = null;
     this._lightSensor  = null;
-    this._orientAlpha  = 0;
-    this._orientBeta   = 0;
-    this._orientGamma  = 0;
     this._mouseX       = 0;  // 0..1
     this._mouseY       = 0;  // 0..1
-    this._lidAngle            = 0;
-    this._orientReceivedData  = false;
-    this._hingeAngleSensor    = null;
-    this._deviceOrientHandler = null;
     this._deviceMouseHandler  = null;
-    this._deviceScreenHandler = null;
+    // Phone (WebSocket bridge) data
+    this._phoneWS     = null;
+    this._phoneData   = {};
 
     // Runtime output
     this.currentValue = 0;
@@ -234,8 +230,11 @@ export class Oscillator {
   invalidateExpr() { this._exprFn = null; }
 
   // ── Envelope ─────────────────────────────────────────
-  _tickEnvelope(globalTimeSec) {
-    const period = this.envPeriod > 0 ? this.envPeriod : 1;
+  _tickEnvelope(globalTimeSec, bpm) {
+    // envRate > 0: beat-synced (cycles per beat); otherwise: envPeriod in seconds
+    const period = (this.envRate > 0 && bpm > 0)
+      ? (60 / bpm) / this.envRate
+      : (this.envPeriod > 0 ? this.envPeriod : 1);
     let phase;
     if (this.envLoop) {
       phase = (globalTimeSec / period) % 1;
@@ -287,36 +286,32 @@ export class Oscillator {
 
   // ── Device / Sensor ───────────────────────────────────
   _tickDevice(dt) {
-    // Raw values in natural units (battery=%, mouse=%, orient=degrees, clock=seconds, lux=lux)
+    // Raw values in natural units
+    const pd = this._phoneData;
     switch (this.deviceSensor) {
-      case 'battery':
-        this._deviceRaw = (this._batteryMgr?.level ?? 0) * 100; // 0-100 %
-        break;
-      case 'light':
-        break; // updated live by AmbientLightSensor 'reading' event
-      case 'orientation-alpha':
-        this._deviceRaw = this._orientAlpha; // 0-360 °
-        break;
-      case 'orientation-beta':
-        this._deviceRaw = this._orientBeta;  // -180 to 180 °
-        break;
-      case 'orientation-gamma':
-        this._deviceRaw = this._orientGamma; // -90 to 90 °
-        break;
-      case 'mouse-x':
-        this._deviceRaw = this._mouseX * 100; // 0-100 %
-        break;
-      case 'mouse-y':
-        this._deviceRaw = this._mouseY * 100; // 0-100 %
-        break;
-      case 'clock':
-        this._deviceRaw = new Date().getSeconds(); // 0-59 sec
-        break;
-      case 'lid-angle':
-        this._deviceRaw = this._lidAngle; // 0-360 °
-        break;
-      default:
-        this._deviceRaw = 0;
+      case 'battery':          this._deviceRaw = (this._batteryMgr?.level ?? 0) * 100; break;
+      case 'light':            break; // updated by AmbientLightSensor event
+      case 'mouse-x':          this._deviceRaw = this._mouseX * 100; break;
+      case 'mouse-y':          this._deviceRaw = this._mouseY * 100; break;
+      case 'clock':            this._deviceRaw = new Date().getSeconds(); break;
+      // Phone sensors (received via WebSocket bridge)
+      case 'phone-orient-alpha':   this._deviceRaw = pd.orientAlpha ?? 0; break;
+      case 'phone-orient-beta':    this._deviceRaw = pd.orientBeta  ?? 0; break;
+      case 'phone-orient-gamma':   this._deviceRaw = pd.orientGamma ?? 0; break;
+      case 'phone-accel-x':        this._deviceRaw = pd.accelX  ?? 0; break;
+      case 'phone-accel-y':        this._deviceRaw = pd.accelY  ?? 0; break;
+      case 'phone-accel-z':        this._deviceRaw = pd.accelZ  ?? 0; break;
+      case 'phone-gravity-x':      this._deviceRaw = pd.gravX   ?? 0; break;
+      case 'phone-gravity-y':      this._deviceRaw = pd.gravY   ?? 0; break;
+      case 'phone-gravity-z':      this._deviceRaw = pd.gravZ   ?? 0; break;
+      case 'phone-rotation-alpha': this._deviceRaw = pd.rotAlpha ?? 0; break;
+      case 'phone-rotation-beta':  this._deviceRaw = pd.rotBeta  ?? 0; break;
+      case 'phone-rotation-gamma': this._deviceRaw = pd.rotGamma ?? 0; break;
+      case 'phone-battery':        this._deviceRaw = pd.battery  ?? 0; break;
+      case 'phone-touch':          this._deviceRaw = pd.touch    ?? 0; break;
+      case 'phone-gps-speed':      this._deviceRaw = pd.gpsSpeed ?? 0; break;
+      case 'phone-gps-altitude':   this._deviceRaw = pd.gpsAlt   ?? 0; break;
+      default: this._deviceRaw = 0;
     }
 
     // Exponential smoothing
@@ -365,48 +360,6 @@ export class Oscillator {
         }
         break;
       }
-      case 'orientation-alpha':
-      case 'orientation-beta':
-      case 'orientation-gamma': {
-        if (typeof DeviceOrientationEvent === 'undefined') {
-          this._deviceStatus = 'Not supported';
-          break;
-        }
-        this._deviceOrientHandler = (e) => {
-          // null values mean no physical sensor (common on desktop)
-          if (e.alpha == null && e.beta == null && e.gamma == null) {
-            if (!this._orientReceivedData) this._deviceStatus = 'No sensor (use mobile)';
-            return;
-          }
-          this._orientReceivedData = true;
-          this._deviceStatus = null;
-          this._orientAlpha = e.alpha ?? 0;
-          this._orientBeta  = e.beta  ?? 0;
-          this._orientGamma = e.gamma ?? 0;
-        };
-        // iOS 13+ requires explicit permission
-        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-          DeviceOrientationEvent.requestPermission()
-            .then(state => {
-              if (state === 'granted') {
-                this._orientReceivedData = false;
-                window.addEventListener('deviceorientation', this._deviceOrientHandler);
-              } else {
-                this._deviceStatus = 'Permission denied';
-              }
-            })
-            .catch(() => { this._deviceStatus = 'Permission error'; });
-        } else {
-          this._orientReceivedData = false;
-          window.addEventListener('deviceorientation', this._deviceOrientHandler);
-          this._deviceStatus = 'Waiting…';
-          // Clear 'Waiting' after 2s if data arrived; otherwise show hint
-          setTimeout(() => {
-            if (!this._orientReceivedData) this._deviceStatus = 'No sensor (use mobile)';
-          }, 2000);
-        }
-        break;
-      }
       case 'mouse-x':
       case 'mouse-y': {
         this._deviceMouseHandler = (e) => {
@@ -418,60 +371,59 @@ export class Oscillator {
       }
       case 'clock':
         break; // updates every tick via new Date().getSeconds()
-      case 'lid-angle': {
-        if (!window.isSecureContext) { this._deviceStatus = 'Needs HTTPS'; break; }
-        try {
-          if ('HingeAngleSensor' in window) {
-            this._hingeAngleSensor = new HingeAngleSensor();
-            this._hingeAngleSensor.addEventListener('reading', () => {
-              this._lidAngle = this._hingeAngleSensor.angle ?? 0;
-              this._deviceStatus = null;
-            });
-            this._hingeAngleSensor.addEventListener('error', (ev) => {
-              this._deviceStatus = ev.error?.name === 'NotAllowedError'
-                ? 'Permission denied' : 'Hinge not available';
-            });
-            this._hingeAngleSensor.start();
-            this._deviceStatus = 'Waiting…';
-          } else if (window.screen?.orientation) {
-            this._deviceScreenHandler = () => {
-              this._lidAngle = window.screen.orientation.angle ?? 0;
-            };
-            window.screen.orientation.addEventListener('change', this._deviceScreenHandler);
-            this._lidAngle = window.screen.orientation.angle ?? 0;
-            this._deviceStatus = 'Screen rotation only';
-          } else {
-            this._deviceStatus = 'Not supported';
-          }
-        } catch (e) {
-          this._deviceStatus = e.name === 'SecurityError' ? 'Permission denied' : 'Not available';
+      default:
+        // Phone sensors — connect via WebSocket bridge
+        if (this.deviceSensor.startsWith('phone-')) {
+          this._connectPhone();
         }
-        break;
-      }
+    }
+  }
+
+  _connectPhone() {
+    if (this._phoneWS && this._phoneWS.readyState <= 1) return; // already connecting/open
+    const host = (typeof location !== 'undefined') ? location.hostname : 'localhost';
+    const url  = `wss://${host}:3443/ws`;
+    this._deviceStatus = 'Connecting…';
+    try {
+      this._phoneWS = new WebSocket(url);
+      this._phoneWS.addEventListener('open',  () => {
+        this._phoneWS.send(JSON.stringify({ role: 'editor' }));
+        this._deviceStatus = 'Waiting for phone…';
+      });
+      this._phoneWS.addEventListener('close', () => {
+        this._deviceStatus = 'Disconnected — run server.js';
+        this._phoneWS = null;
+      });
+      this._phoneWS.addEventListener('error', () => {
+        this._deviceStatus = 'No server — run: node server.js';
+      });
+      this._phoneWS.addEventListener('message', (e) => {
+        try {
+          const d = JSON.parse(e.data);
+          if (d.type === 'phone') {
+            this._phoneData   = d;
+            this._deviceStatus = null;
+          }
+        } catch {}
+      });
+    } catch {
+      this._deviceStatus = 'WebSocket unavailable';
     }
   }
 
   stopDevice() {
     this._deviceStatus = null;
-    if (this._deviceOrientHandler) {
-      window.removeEventListener('deviceorientation', this._deviceOrientHandler);
-      this._deviceOrientHandler = null;
-    }
     if (this._deviceMouseHandler) {
       document.removeEventListener('mousemove', this._deviceMouseHandler);
       this._deviceMouseHandler = null;
     }
     if (this._lightSensor) {
-      try { this._lightSensor.stop(); } catch (e) { /* ignore */ }
+      try { this._lightSensor.stop(); } catch {}
       this._lightSensor = null;
     }
-    if (this._hingeAngleSensor) {
-      try { this._hingeAngleSensor.stop(); } catch (e) { /* ignore */ }
-      this._hingeAngleSensor = null;
-    }
-    if (this._deviceScreenHandler) {
-      window.screen?.orientation?.removeEventListener('change', this._deviceScreenHandler);
-      this._deviceScreenHandler = null;
+    if (this._phoneWS) {
+      this._phoneWS.close();
+      this._phoneWS = null;
     }
     // Clear battery reference (BatteryManager has no removeEventListener in all browsers)
     this._batteryMgr = null;
@@ -586,7 +538,7 @@ export class OscillatorEngine {
         case 'audio':      osc._tickAudio(); break;
         case 'expression': osc._tickExpression(globalTimeSec, bpm); break;
         case 'track':      osc._tickTrack(); break;
-        case 'envelope':   osc._tickEnvelope(globalTimeSec); break;
+        case 'envelope':   osc._tickEnvelope(globalTimeSec, bpm); break;
         case 'device':     osc._tickDevice(dt); break;
         default:           osc._tickLFO(globalTimeSec);
       }

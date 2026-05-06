@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>SVG Editor — Phone Sensor</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0b0b0b;
+      color: #e8e8e8;
+      font-family: -apple-system, 'Helvetica Neue', sans-serif;
+      font-size: 14px;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+      gap: 16px;
+      touch-action: none;
+    }
+    h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+    #status {
+      font-size: 12px;
+      color: #888;
+      text-align: center;
+      min-height: 18px;
+    }
+    #status.ok  { color: #44ff88; }
+    #status.err { color: #ff4444; }
+    #start-btn {
+      margin-top: 8px;
+      padding: 16px 40px;
+      background: #7b72ff;
+      border: none;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      width: 100%;
+      max-width: 320px;
+    }
+    #start-btn:active { opacity: 0.7; }
+    #start-btn:disabled { opacity: 0.4; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      width: 100%;
+      max-width: 400px;
+    }
+    .tile {
+      background: #151515;
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .tile-label { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 0.06em; }
+    .tile-val { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; color: #7b72ff; }
+    #touch-area {
+      width: 100%;
+      max-width: 400px;
+      height: 120px;
+      background: #151515;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #444;
+      font-size: 13px;
+      user-select: none;
+      touch-action: none;
+    }
+    #touch-area.active { background: #1c1c2e; color: #7b72ff; }
+  </style>
+</head>
+<body>
+  <h1>📱 Phone Sensor</h1>
+  <div id="status">Not connected</div>
+  <button id="start-btn">Start Sharing</button>
+
+  <div class="grid">
+    <div class="tile"><div class="tile-label">Compass/Yaw α</div><div class="tile-val" id="v-a">–</div></div>
+    <div class="tile"><div class="tile-label">Tilt β (F/B)</div><div class="tile-val" id="v-b">–</div></div>
+    <div class="tile"><div class="tile-label">Tilt γ (L/R)</div><div class="tile-val" id="v-g">–</div></div>
+    <div class="tile"><div class="tile-label">Battery</div><div class="tile-val" id="v-bat">–</div></div>
+    <div class="tile"><div class="tile-label">Accel X</div><div class="tile-val" id="v-ax">–</div></div>
+    <div class="tile"><div class="tile-label">Accel Y</div><div class="tile-val" id="v-ay">–</div></div>
+    <div class="tile"><div class="tile-label">Accel Z</div><div class="tile-val" id="v-az">–</div></div>
+    <div class="tile"><div class="tile-label">Gyro Yaw</div><div class="tile-val" id="v-ra">–</div></div>
+    <div class="tile"><div class="tile-label">Gyro Pitch</div><div class="tile-val" id="v-rb">–</div></div>
+    <div class="tile"><div class="tile-label">Gyro Roll</div><div class="tile-val" id="v-rg">–</div></div>
+    <div class="tile"><div class="tile-label">GPS Speed</div><div class="tile-val" id="v-sp">–</div></div>
+    <div class="tile"><div class="tile-label">GPS Alt</div><div class="tile-val" id="v-alt">–</div></div>
+  </div>
+
+  <div id="touch-area">Hold here to send touch=1</div>
+
+  <script>
+  const $ = id => document.getElementById(id);
+  const statusEl = $('status');
+  const startBtn = $('start-btn');
+  const touchArea = $('touch-area');
+
+  // Shared sensor data object — updated by all event listeners
+  const data = {
+    type: 'phone',
+    orientAlpha: 0, orientBeta: 0, orientGamma: 0,
+    accelX: 0, accelY: 0, accelZ: 0,
+    gravX: 0,  gravY: 0,  gravZ: 0,
+    rotAlpha: 0, rotBeta: 0, rotGamma: 0,
+    battery: 0,
+    touch: 0,
+    gpsSpeed: 0, gpsAlt: 0,
+  };
+
+  let ws = null;
+  let sendInterval = null;
+  let started = false;
+
+  function setStatus(msg, cls = '') {
+    statusEl.textContent = msg;
+    statusEl.className = cls;
+  }
+
+  function fmt(v) { return typeof v === 'number' ? v.toFixed(1) : '–'; }
+
+  function updateUI() {
+    $('v-a').textContent  = fmt(data.orientAlpha);
+    $('v-b').textContent  = fmt(data.orientBeta);
+    $('v-g').textContent  = fmt(data.orientGamma);
+    $('v-bat').textContent = fmt(data.battery) + '%';
+    $('v-ax').textContent = fmt(data.accelX);
+    $('v-ay').textContent = fmt(data.accelY);
+    $('v-az').textContent = fmt(data.accelZ);
+    $('v-ra').textContent = fmt(data.rotAlpha);
+    $('v-rb').textContent = fmt(data.rotBeta);
+    $('v-rg').textContent = fmt(data.rotGamma);
+    $('v-sp').textContent = fmt(data.gpsSpeed);
+    $('v-alt').textContent = fmt(data.gpsAlt);
+  }
+
+  // ── Orientation ──────────────────────────────────────
+  function startOrientation() {
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+      // iOS 13+
+      DeviceOrientationEvent.requestPermission()
+        .then(r => {
+          if (r === 'granted') window.addEventListener('deviceorientation', onOrient);
+          else setStatus('Orientation permission denied', 'err');
+        })
+        .catch(() => setStatus('Permission error', 'err'));
+    } else {
+      window.addEventListener('deviceorientation', onOrient);
+    }
+  }
+
+  function onOrient(e) {
+    data.orientAlpha = e.alpha ?? 0;
+    data.orientBeta  = e.beta  ?? 0;
+    data.orientGamma = e.gamma ?? 0;
+  }
+
+  // ── Motion (accelerometer + gyroscope) ───────────────
+  function startMotion() {
+    if (typeof DeviceMotionEvent !== 'undefined' &&
+        typeof DeviceMotionEvent.requestPermission === 'function') {
+      DeviceMotionEvent.requestPermission()
+        .then(r => {
+          if (r === 'granted') window.addEventListener('devicemotion', onMotion);
+          else setStatus('Motion permission denied', 'err');
+        })
+        .catch(() => {});
+    } else {
+      window.addEventListener('devicemotion', onMotion);
+    }
+  }
+
+  function onMotion(e) {
+    const a = e.acceleration;
+    const g = e.accelerationIncludingGravity;
+    const r = e.rotationRate;
+    if (a) { data.accelX = a.x ?? 0; data.accelY = a.y ?? 0; data.accelZ = a.z ?? 0; }
+    if (g) { data.gravX  = g.x ?? 0; data.gravY  = g.y ?? 0; data.gravZ  = g.z ?? 0; }
+    if (r) { data.rotAlpha = r.alpha ?? 0; data.rotBeta = r.beta ?? 0; data.rotGamma = r.gamma ?? 0; }
+  }
+
+  // ── Battery ──────────────────────────────────────────
+  async function startBattery() {
+    try {
+      if (!navigator.getBattery) return;
+      const bat = await navigator.getBattery();
+      data.battery = bat.level * 100;
+      bat.addEventListener('levelchange', () => { data.battery = bat.level * 100; });
+    } catch {}
+  }
+
+  // ── GPS ──────────────────────────────────────────────
+  function startGPS() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.watchPosition(pos => {
+      data.gpsSpeed = pos.coords.speed ?? 0;
+      data.gpsAlt   = pos.coords.altitude ?? 0;
+    }, () => {}, { enableHighAccuracy: false });
+  }
+
+  // ── Touch area ───────────────────────────────────────
+  touchArea.addEventListener('pointerdown', () => {
+    data.touch = 1;
+    touchArea.classList.add('active');
+    touchArea.textContent = 'Sending touch=1';
+  });
+  touchArea.addEventListener('pointerup', () => {
+    data.touch = 0;
+    touchArea.classList.remove('active');
+    touchArea.textContent = 'Hold here to send touch=1';
+  });
+  touchArea.addEventListener('pointercancel', () => {
+    data.touch = 0;
+    touchArea.classList.remove('active');
+  });
+
+  // ── WebSocket + send loop ─────────────────────────────
+  function connectWS() {
+    const url = `wss://${location.host}/ws`;
+    ws = new WebSocket(url);
+    ws.addEventListener('open', () => {
+      ws.send(JSON.stringify({ role: 'phone' }));
+      setStatus('Connected — sending data', 'ok');
+      startSendLoop();
+    });
+    ws.addEventListener('close', () => {
+      setStatus('Disconnected — retrying…', 'err');
+      stopSendLoop();
+      setTimeout(connectWS, 3000);
+    });
+    ws.addEventListener('error', () => {
+      setStatus('Connection error', 'err');
+    });
+  }
+
+  function startSendLoop() {
+    stopSendLoop();
+    sendInterval = setInterval(() => {
+      if (ws?.readyState === 1) ws.send(JSON.stringify(data));
+      updateUI();
+    }, 50); // 20 Hz
+  }
+
+  function stopSendLoop() {
+    if (sendInterval) { clearInterval(sendInterval); sendInterval = null; }
+  }
+
+  // ── Start button ──────────────────────────────────────
+  startBtn.addEventListener('click', async () => {
+    if (started) return;
+    started = true;
+    startBtn.disabled = true;
+    startBtn.textContent = 'Starting…';
+    setStatus('Requesting permissions…');
+
+    startOrientation();
+    startMotion();
+    await startBattery();
+    startGPS();
+
+    setStatus('Connecting to editor…');
+    connectWS();
+    startBtn.textContent = 'Sharing Active';
+  });
+  </script>
+</body>
+</html>

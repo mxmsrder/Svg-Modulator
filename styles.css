@@ -219,10 +219,9 @@ body { display: flex; flex-direction: column; }
 /* ── OSCILLATOR CARDS ──────────────────────────────── */
 .osc-card {
   background: var(--bg2);
-  padding: 8px 8px 8px 10px;
+  padding: 8px 8px 8px 8px;
   margin: 3px 4px;
   position: relative;
-  border-left: 2px solid transparent;
 }
 .osc-card-header {
   display: flex;
@@ -260,7 +259,6 @@ body { display: flex; flex-direction: column; }
   padding: 4px 7px;
   background: var(--bg3);
   border: none;
-  border-left: 2px solid transparent;
   color: var(--text-mid);
   font-size: 10px;
   font-family: inherit;
@@ -820,6 +818,39 @@ tr + tr > td { border-top: 1px solid var(--bg2); }
   color: var(--text-dim);
   font-size: 10px;
 }
+/* Save slot row with hover-reveal delete button */
+.save-row {
+  display: flex;
+  align-items: stretch;
+  position: relative;
+}
+.save-row-btn {
+  flex: 1;
+  text-align: left;
+  padding: 4px 10px;
+  background: none;
+  border: none;
+  color: var(--text-mid);
+  font-size: 10px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.save-row-btn:hover { background: var(--bg4); color: var(--text); }
+.save-row-del {
+  display: none;
+  padding: 0 6px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.save-row:hover .save-row-del { display: block; }
+.save-row-del:hover { color: var(--accent2); }
 
 /* ── ENVELOPE EDITOR CANVAS ──────────────────────────── */
 .env-canvas {
@@ -829,5 +860,48 @@ tr + tr > td { border-top: 1px solid var(--bg2); }
   background: #0a0a0a;
   image-rendering: pixelated;
   touch-action: none;
+}
+
+/* ── DEVICE INFO BUTTON ──────────────────────────────── */
+.osc-info-btn {
+  flex-shrink: 0;
+  padding: 0 5px;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 11px;
+  cursor: pointer;
+  line-height: 1;
+}
+.osc-info-btn:hover { opacity: 0.7; }
+
+/* ── PHONE INFO POPOVER ──────────────────────────────── */
+.phone-info-popover {
+  position: fixed;
+  z-index: 9000;
+  background: var(--bg3);
+  border: 1px solid var(--bg4);
+  padding: 12px 14px 10px;
+  width: 260px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--text-mid);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+}
+.pip-title { font-size: 11px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+.pip-step  { margin-bottom: 6px; }
+.pip-url   { color: var(--accent); word-break: break-all; }
+.pip-close {
+  position: absolute;
+  top: 6px; right: 8px;
+  background: none; border: none;
+  color: var(--text-dim); font-size: 11px; cursor: pointer;
+}
+.pip-close:hover { color: var(--text); }
+.phone-info-popover code {
+  background: var(--bg2);
+  padding: 1px 4px;
+  color: var(--green);
+  font-family: inherit;
 }
 
