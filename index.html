@@ -21,9 +21,8 @@
         <button class="btn" id="export-btn">EXPORT ▾</button>
         <div class="dropdown-menu" id="export-menu">
           <button data-action="export-svg">Static SVG</button>
-          <button data-action="export-smil">Animated SVG (SMIL)</button>
           <button data-action="export-osc">Save Sketch (.osc)</button>
-          <button data-action="export-state">Save State (JSON)</button>
+          <button data-action="export-lottie">Export Lottie</button>
           <button data-action="export-anim">PNG Sequence / MP4…</button>
         </div>
       </div>
@@ -140,6 +139,7 @@
             <span class="app-color-label">STROKE</span>
             <input type="color" id="multi-stroke-color" value="#ffffff">
             <div style="flex:1" id="multi-stroke-width-wrap"></div>
+            <div style="flex:1" id="multi-stroke-opacity-wrap"></div>
           </div>
         </div>
       </div>
@@ -176,6 +176,7 @@
             <span class="app-color-label">STROKE</span>
             <input type="color" id="stroke-color-input" value="#ffffff">
             <div style="flex:1" id="stroke-width-wrap"></div>
+            <div style="flex:1" id="stroke-opacity-wrap"></div>
           </div>
         </div>
 

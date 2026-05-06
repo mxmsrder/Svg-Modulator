@@ -205,13 +205,12 @@ export class CanvasViewport {
           el.setAttribute('stroke-width', invZ.toFixed(6));
           el.setAttribute('fill-opacity', '0');
         } else {
-          el.setAttribute('fill',         applyHSLDelta(model.fill,   model.fillH,   model.fillS,   model.fillL));
-          el.setAttribute('fill-opacity', model.fillOpacity);
-          el.setAttribute('stroke',       applyHSLDelta(model.stroke, model.strokeH, model.strokeS, model.strokeL));
-          el.setAttribute('stroke-width', model.strokeWidth);
+          el.setAttribute('fill',           applyHSLDelta(model.fill,   model.fillH,   model.fillS,   model.fillL));
+          el.setAttribute('fill-opacity',   model.fillOpacity);
+          el.setAttribute('stroke',         applyHSLDelta(model.stroke, model.strokeH, model.strokeS, model.strokeL));
+          el.setAttribute('stroke-width',   model.strokeWidth);
+          el.setAttribute('stroke-opacity', model.strokeOpacity ?? 1);
         }
-        if (model.selected) el.setAttribute('stroke-opacity', '1');
-        else                 el.removeAttribute('stroke-opacity');
       }
 
       let hit = this._hitEls.get(id);

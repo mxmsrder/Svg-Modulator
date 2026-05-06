@@ -29,7 +29,7 @@ export function bindingLabel(target) {
 
 // List of available path-level binding properties
 export const PATH_PROPERTIES = [
-  'strokeWidth', 'fillOpacity',
+  'strokeWidth', 'fillOpacity', 'strokeOpacity',
   'rotation', 'scaleX', 'scaleY', 'tx', 'ty',
   'fillH', 'fillS', 'fillL',
   'strokeH', 'strokeS', 'strokeL',
@@ -66,8 +66,9 @@ export class BindingSystem {
   // ── Reset all animated values to their base ──────────
   resetToBase(paths) {
     for (const model of paths.values()) {
-      model.strokeWidth  = model.baseStrokeWidth;
-      model.fillOpacity  = model.baseFillOpacity;
+      model.strokeWidth    = model.baseStrokeWidth;
+      model.fillOpacity    = model.baseFillOpacity;
+      model.strokeOpacity  = model.baseStrokeOpacity;
       model.rotation     = model.baseRotation;
       model.scaleX       = model.baseScaleX;
       model.scaleY       = model.baseScaleY;

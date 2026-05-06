@@ -11,11 +11,12 @@ const TYPE_LABELS = {
   lfo:        'LFO',
   step:       'Step',
   randomwalk: 'Walk',
-  audio:      'Audio',
+  audio:      'Mic',
   expression: 'Expr',
   track:      'Track',
   envelope:   'Env',
   device:     'Device',
+  phone:      'Phone',
 };
 
 export class OscillatorPanel {
@@ -49,7 +50,7 @@ export class OscillatorPanel {
       if (osc.type === 'randomwalk') this._tickRandomWalkDisplay(osc, card);
       if (osc.type === 'track')      this._tickTrackViz(osc, card, globalTime);
       if (osc.type === 'envelope')   this._tickEnvelopePreview(osc, card, globalTime);
-      if (osc.type === 'device')     this._tickDeviceDisplay(osc, card);
+      if (osc.type === 'device' || osc.type === 'phone') this._tickDeviceDisplay(osc, card);
     }
   }
 
@@ -219,6 +220,7 @@ export class OscillatorPanel {
       case 'track':      this._buildTrack(osc, body, card.sliders);       break;
       case 'envelope':   this._buildEnvelope(osc, body, card.sliders);    break;
       case 'device':     this._buildDevice(osc, body, card.sliders);      break;
+      case 'phone':      this._buildPhone(osc, body, card.sliders);       break;
     }
   }
 
@@ -563,7 +565,13 @@ export class OscillatorPanel {
     const statusDiv = document.createElement('div');
     statusDiv.className = 'audio-status';
     statusDiv.style.flex = '1';
-    statusDiv.textContent = osc.trackName ? `◈ ${osc.trackName}` : '○ No file loaded';
+    if (osc.trackName && !osc.trackBuffer) {
+      statusDiv.textContent = `⚠ Re-load: ${osc.trackName}`;
+      statusDiv.style.color = '#ffaa44';
+    } else {
+      statusDiv.textContent = osc.trackName ? `◈ ${osc.trackName}` : '○ No file loaded';
+      statusDiv.style.color = '';
+    }
 
     const muteBtn = document.createElement('button');
     muteBtn.className = 'btn btn-sm' + (osc.trackMuted ? ' active' : '');
@@ -942,6 +950,49 @@ export class OscillatorPanel {
     canvas._envDraw(phase);
   }
 
+  // ── Sensor dropdown helper ────────────────────────────
+
+  _buildSensorDropdown(sensors, currentVal, onChange) {
+    const wrap = document.createElement('div');
+    wrap.className = 'osc-sensor-wrap';
+
+    const toggle = document.createElement('button');
+    toggle.className = 'osc-sensor-toggle';
+
+    const list = document.createElement('div');
+    list.className = 'osc-sensor-list';
+    list.hidden = true;
+
+    const setCurrent = (val) => {
+      const entry = sensors.find(([v]) => v === val);
+      toggle.textContent = entry ? entry[1] : val;
+    };
+    setCurrent(currentVal);
+
+    for (const [val, label] of sensors) {
+      const item = document.createElement('div');
+      item.className = 'osc-type-item';
+      item.textContent = label;
+      item.addEventListener('click', () => {
+        setCurrent(val);
+        list.hidden = true;
+        onChange(val);
+      });
+      list.appendChild(item);
+    }
+
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      list.hidden = !list.hidden;
+    });
+
+    document.addEventListener('click', () => { list.hidden = true; }, { capture: false });
+
+    wrap.appendChild(toggle);
+    wrap.appendChild(list);
+    return { wrap, setCurrent };
+  }
+
   // ── Device / Sensor ───────────────────────────────────
 
   _buildDevice(osc, body, sliders) {
@@ -979,24 +1030,17 @@ export class OscillatorPanel {
       ['phone-gps-speed',      'Phone: GPS Speed (m/s)'],
       ['phone-gps-altitude',   'Phone: GPS Altitude (m)'],
     ];
-    const sel = document.createElement('select');
-    sel.style.flex = '1';
-    for (const [val, label] of SENSORS) {
-      const opt = document.createElement('option');
-      opt.value = val; opt.textContent = label;
-      if (osc.deviceSensor === val) opt.selected = true;
-      sel.appendChild(opt);
-    }
-    sel.addEventListener('change', async (e) => {
+
+    const { wrap: ddWrap } = this._buildSensorDropdown(SENSORS, osc.deviceSensor, async (val) => {
       osc.stopDevice?.();
-      osc.deviceSensor  = e.target.value;
-      osc._deviceRaw    = 0;
-      osc._deviceLevel  = 0;
+      osc.deviceSensor = val;
+      osc._deviceRaw   = 0;
+      osc._deviceLevel = 0;
       await osc.initDevice?.();
-      infoBtn.style.display = e.target.value.startsWith('phone-') ? '' : 'none';
+      infoBtn.style.display = val.startsWith('phone-') ? '' : 'none';
       this.onChange();
     });
-    sensorRow.appendChild(sel);
+    sensorRow.appendChild(ddWrap);
 
     // Info button for phone sensors
     const infoBtn = document.createElement('button');
@@ -1004,6 +1048,82 @@ export class OscillatorPanel {
     infoBtn.textContent = 'ℹ';
     infoBtn.title = 'How to connect iPhone';
     infoBtn.style.display = osc.deviceSensor.startsWith('phone-') ? '' : 'none';
+    infoBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._showPhoneInfo(infoBtn);
+    });
+    sensorRow.appendChild(infoBtn);
+
+    body.appendChild(sensorRow);
+
+    const params = document.createElement('div');
+    params.className = 'osc-params';
+    sliders.deviceScale = new BoxSlider(params, {
+      label: 'Scale', unit: '×', min: 0, max: 50, step: 0, value: osc.deviceScale,
+      color: osc.color,
+      onChange: v => { osc.deviceScale = v; this.onChange(); },
+    });
+    sliders.deviceSmooth = new BoxSlider(params, {
+      label: 'Smooth', unit: '', min: 0, max: 0.99, step: 0, value: osc.deviceSmooth,
+      color: osc.color,
+      onChange: v => { osc.deviceSmooth = v; this.onChange(); },
+    });
+    body.appendChild(params);
+
+    osc.stopDevice?.();
+    osc.initDevice?.();
+  }
+
+  // ── Phone Sensor (top-level type) ────────────────────
+
+  _buildPhone(osc, body, sliders) {
+    const liveDiv = document.createElement('div');
+    liveDiv.className = 'osc-live-val';
+    liveDiv.textContent = '~';
+    body.appendChild(liveDiv);
+
+    const sensorRow = document.createElement('div');
+    sensorRow.className = 'inspector-row';
+    sensorRow.style.paddingBottom = '4px';
+
+    const PHONE_SENSORS = [
+      ['phone-orient-alpha',   'Compass / Yaw (0-360°)'],
+      ['phone-orient-beta',    'Front/Back tilt (±180°)'],
+      ['phone-orient-gamma',   'Left/Right tilt (±90°)'],
+      ['phone-accel-x',        'Accel X (m/s²)'],
+      ['phone-accel-y',        'Accel Y (m/s²)'],
+      ['phone-accel-z',        'Accel Z (m/s²)'],
+      ['phone-gravity-x',      'Gravity X (m/s²)'],
+      ['phone-gravity-y',      'Gravity Y (m/s²)'],
+      ['phone-gravity-z',      'Gravity Z (m/s²)'],
+      ['phone-rotation-alpha', 'Gyro Yaw (°/s)'],
+      ['phone-rotation-beta',  'Gyro Pitch (°/s)'],
+      ['phone-rotation-gamma', 'Gyro Roll (°/s)'],
+      ['phone-battery',        'Battery (0-100%)'],
+      ['phone-touch',          'Touch (0/1)'],
+      ['phone-gps-speed',      'GPS Speed (m/s)'],
+      ['phone-gps-altitude',   'GPS Altitude (m)'],
+    ];
+
+    // Ensure sensor is a phone sensor
+    if (!osc.deviceSensor.startsWith('phone-')) {
+      osc.deviceSensor = 'phone-orient-alpha';
+    }
+
+    const { wrap: ddWrap } = this._buildSensorDropdown(PHONE_SENSORS, osc.deviceSensor, async (val) => {
+      osc.stopDevice?.();
+      osc.deviceSensor = val;
+      osc._deviceRaw   = 0;
+      osc._deviceLevel = 0;
+      await osc.initDevice?.();
+      this.onChange();
+    });
+    sensorRow.appendChild(ddWrap);
+
+    const infoBtn = document.createElement('button');
+    infoBtn.className = 'osc-info-btn';
+    infoBtn.textContent = 'ℹ';
+    infoBtn.title = 'How to connect iPhone';
     infoBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this._showPhoneInfo(infoBtn);

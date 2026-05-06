@@ -71,8 +71,10 @@ export class PathModel {
     this.stroke          = 'none';
     this.strokeWidth     = 0.05;
     this.baseStrokeWidth = 0.05;
-    this.fillOpacity     = 1;
-    this.baseFillOpacity = 1;
+    this.fillOpacity       = 1;
+    this.baseFillOpacity   = 1;
+    this.strokeOpacity     = 1;
+    this.baseStrokeOpacity = 1;
 
     // Transform — animated fields
     this.tx        = 0; this.baseTx     = 0;

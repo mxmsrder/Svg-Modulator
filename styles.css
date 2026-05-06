@@ -827,7 +827,7 @@ tr + tr > td { border-top: 1px solid var(--bg2); }
 .save-row-btn {
   flex: 1;
   text-align: left;
-  padding: 4px 10px;
+  padding: 4px 28px 4px 10px;
   background: none;
   border: none;
   color: var(--text-mid);
@@ -840,17 +840,22 @@ tr + tr > td { border-top: 1px solid var(--bg2); }
 }
 .save-row-btn:hover { background: var(--bg4); color: var(--text); }
 .save-row-del {
-  display: none;
-  padding: 0 6px;
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 2px 5px;
   background: none;
   border: none;
   color: var(--text-dim);
   font-size: 12px;
   cursor: pointer;
-  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 1;
 }
-.save-row:hover .save-row-del { display: block; }
-.save-row-del:hover { color: var(--accent2); }
+.save-row:hover .save-row-del { opacity: 0.5; }
+.save-row-del:hover { opacity: 1 !important; color: var(--accent2); }
 
 /* ── ENVELOPE EDITOR CANVAS ──────────────────────────── */
 .env-canvas {
@@ -861,6 +866,44 @@ tr + tr > td { border-top: 1px solid var(--bg2); }
   image-rendering: pixelated;
   touch-action: none;
 }
+
+/* ── SENSOR CUSTOM DROPDOWN ──────────────────────────── */
+.osc-sensor-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.osc-sensor-toggle {
+  display: block;
+  width: 100%;
+  padding: 4px 7px;
+  background: var(--bg3);
+  border: none;
+  color: var(--text-mid);
+  font-size: 10px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: 3px;
+}
+.osc-sensor-toggle:hover { background: var(--bg4); color: var(--text); }
+.osc-sensor-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  background: var(--bg2);
+  z-index: 200;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.6);
+  border: 1px solid var(--bg4);
+  border-top: none;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.osc-sensor-list[hidden] { display: none; }
 
 /* ── DEVICE INFO BUTTON ──────────────────────────────── */
 .osc-info-btn {
@@ -905,3 +948,44 @@ tr + tr > td { border-top: 1px solid var(--bg2); }
   font-family: inherit;
 }
 
+
+/* ── EXPORT EMPTY TOAST ──────────────────────────────── */
+.export-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e1e2e;
+  color: #ff6666;
+  border: 1px solid #ff4444;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+  z-index: 9999;
+  white-space: nowrap;
+}
+.export-toast.visible { opacity: 1; }
+
+/* ── COLOR SWATCHES ──────────────────────────────────── */
+.color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 4px 10px;
+}
+.color-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.1);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+.color-swatch:hover {
+  border-color: rgba(255,255,255,0.5);
+  transform: scale(1.15);
+}

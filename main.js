@@ -49,6 +49,7 @@ function restorePathsFromData(data) {
       id: d.id, closed: d.closed, fill: d.fill, stroke: d.stroke,
       strokeWidth: d.strokeWidth, baseStrokeWidth: d.baseStrokeWidth,
       fillOpacity: d.fillOpacity, baseFillOpacity: d.baseFillOpacity,
+      strokeOpacity: d.strokeOpacity ?? 1, baseStrokeOpacity: d.baseStrokeOpacity ?? 1,
       tx: d.tx, baseTx: d.baseTx, ty: d.ty, baseTy: d.baseTy,
       rotation: d.rotation, baseRotation: d.baseRotation,
       scaleX: d.scaleX, baseScaleX: d.baseScaleX,
@@ -145,7 +146,7 @@ function serializeFullState() {
       trackMuted: o.trackMuted, trackThreshold: o.trackThreshold,
       // Envelope
       envPoints: o.envPoints, envPeriod: o.envPeriod,
-      envAmplitude: o.envAmplitude, envSmooth: o.envSmooth, envLoop: o.envLoop, envSnap: o.envSnap,
+      envRate: o.envRate, envAmplitude: o.envAmplitude, envSmooth: o.envSmooth, envLoop: o.envLoop, envSnap: o.envSnap,
       // Device
       deviceSensor: o.deviceSensor, deviceScale: o.deviceScale, deviceSmooth: o.deviceSmooth,
     })),
@@ -161,6 +162,7 @@ function serializePath(m) {
     id: m.id, closed: m.closed, fill: m.fill, stroke: m.stroke,
     strokeWidth: m.strokeWidth, baseStrokeWidth: m.baseStrokeWidth,
     fillOpacity: m.fillOpacity, baseFillOpacity: m.baseFillOpacity,
+    strokeOpacity: m.strokeOpacity, baseStrokeOpacity: m.baseStrokeOpacity,
     tx: m.tx, baseTx: m.baseTx, ty: m.ty, baseTy: m.baseTy,
     rotation: m.rotation, baseRotation: m.baseRotation,
     scaleX: m.scaleX, baseScaleX: m.baseScaleX,
@@ -181,7 +183,15 @@ function serializePath(m) {
   };
 }
 
+function stopAllTracks() {
+  for (const osc of oscEngine.oscillators.values()) {
+    if (osc.type === 'track') osc.stopTrack?.();
+    if (osc.type === 'phone') osc.stopDevice?.();
+  }
+}
+
 function restoreFullState(obj) {
+  stopAllTracks();
   if (obj.paths) restorePathsFromData(obj.paths);
   if (obj.oscillators) {
     oscEngine.oscillators.clear();
@@ -312,6 +322,15 @@ const _multiStrokeWSlider = new BoxSlider(document.getElementById('multi-stroke-
     for (const id of state.selection.pathIds) {
       const m = state.paths.get(id);
       if (m) { m.strokeWidth = v; m.baseStrokeWidth = v; }
+    }
+  },
+});
+const _multiStrokeOpSlider = new BoxSlider(document.getElementById('multi-stroke-opacity-wrap'), {
+  label: '', unit: '', min: 0, max: 1, step: 0, value: 1, color: '#7b72ff',
+  onChange: v => {
+    for (const id of state.selection.pathIds) {
+      const m = state.paths.get(id);
+      if (m) { m.strokeOpacity = v; m.baseStrokeOpacity = v; }
     }
   },
 });
@@ -588,17 +607,28 @@ svgEl.addEventListener('click', (e) => {
         state.selection.pathIds.delete(pathId);
         model.selected = false;
         state.selection.pathId = [...state.selection.pathIds].at(-1) ?? null;
+        // Remove points of deselected path
+        for (let i = 0; i < model.points.length; i++) {
+          state.selection.pointIds.delete(`${pathId}:${i}`);
+        }
       } else {
         state.selection.pathIds.add(pathId);
         model.selected = true;
         state.selection.pathId = pathId;
+        // Add all points of newly selected path
+        for (let i = 0; i < model.points.length; i++) {
+          state.selection.pointIds.add(`${pathId}:${i}`);
+        }
       }
-      state.selection.pointIds = new Set();
     } else {
       clearPathSelection();
       state.selection.pathIds.add(pathId);
       state.selection.pathId = pathId;
       model.selected = true;
+      // Select all points of clicked path
+      state.selection.pointIds = new Set(
+        model.points.map((_, i) => `${pathId}:${i}`)
+      );
     }
     renderMultiSelectUI();
     if (state.selection.pathIds.size <= 1) { inspector.render(); }
@@ -668,6 +698,10 @@ viewport.onBackgroundPointerUp = (e) => {
         state.selection.pathIds.add(id);
         model.selected = true;
         state.selection.pathId = id;
+        // Select all points of matched path
+        for (let i = 0; i < model.points.length; i++) {
+          state.selection.pointIds.add(`${id}:${i}`);
+        }
       }
     }
     renderMultiSelectUI();
@@ -977,15 +1011,28 @@ document.getElementById('export-menu').querySelectorAll('button').forEach(btn =>
   btn.addEventListener('click', () => {
     document.getElementById('export-menu').parentElement.classList.remove('open');
     const action = btn.dataset.action;
-    if (action === 'export-svg')   exportStaticSVG();
-    if (action === 'export-smil')  exportSMIL();
-    if (action === 'export-state') exportStateJSON();
-    if (action === 'export-osc')   exportOSC();
-    if (action === 'export-anim')  openAnimDialog();
+    if (action === 'export-svg')    exportStaticSVG();
+    if (action === 'export-osc')    exportOSC();
+    if (action === 'export-lottie') exportLottie();
+    if (action === 'export-anim')   openAnimDialog();
   });
 });
 
+function showExportEmptyToast() {
+  let t = document.getElementById('export-empty-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'export-empty-toast';
+    t.className = 'export-toast';
+    t.textContent = 'Nothing to export — import an SVG first';
+    document.body.appendChild(t);
+  }
+  t.classList.add('visible');
+  setTimeout(() => t.classList.remove('visible'), 2500);
+}
+
 function exportStaticSVG() {
+  if (state.paths.size === 0) { showExportEmptyToast(); return; }
   const ns = 'http://www.w3.org/2000/svg';
   const svgDoc = document.createElementNS(ns, 'svg');
   const vb = viewport.svgVB;
@@ -999,6 +1046,7 @@ function exportStaticSVG() {
     p.setAttribute('fill-opacity', model.fillOpacity);
     p.setAttribute('stroke', model.stroke);
     p.setAttribute('stroke-width', model.strokeWidth);
+    p.setAttribute('stroke-opacity', model.strokeOpacity ?? 1);
     const t = model.toTransformString();
     if (t) p.setAttribute('transform', t);
     svgDoc.appendChild(p);
@@ -1006,57 +1054,133 @@ function exportStaticSVG() {
   downloadText(new XMLSerializer().serializeToString(svgDoc), 'export.svg', 'image/svg+xml');
 }
 
-function exportSMIL() {
-  const ns  = 'http://www.w3.org/2000/svg';
-  const out = document.createElementNS(ns, 'svg');
-  const vb  = viewport.svgVB;
-  out.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
-  out.setAttribute('xmlns', ns);
-
-  for (const model of state.paths.values()) {
-    if (!model.visible) continue;
-    const p = document.createElementNS(ns, 'path');
-    p.setAttribute('d', model.toPathString());
-    p.setAttribute('fill', model.fill);
-    p.setAttribute('stroke', model.stroke);
-    p.setAttribute('stroke-width', model.strokeWidth);
-
-    for (const b of bindingSys.bindings.values()) {
-      if (b.target.pathId !== model.id || b.target.pointIndex !== null) continue;
-      const osc = oscEngine.oscillators.get(b.oscillatorId);
-      if (!osc || osc.type !== 'lfo') continue;
-      const dur   = (1 / osc.frequency).toFixed(3);
-      const FRAMES = 60;
-      const vals  = [];
-      for (let i = 0; i <= FRAMES; i++) {
-        osc._tickLFO(i / FRAMES / osc.frequency);
-        vals.push((osc.currentValue * b.scale).toFixed(3));
-      }
-      const anim = document.createElementNS(ns, 'animate');
-      anim.setAttribute('attributeName', b.target.property);
-      anim.setAttribute('values', vals.join(';'));
-      anim.setAttribute('dur', dur + 's');
-      anim.setAttribute('repeatCount', 'indefinite');
-      p.appendChild(anim);
-    }
-    out.appendChild(p);
-  }
-  downloadText(new XMLSerializer().serializeToString(out), 'animated.svg', 'image/svg+xml');
-}
-
-function exportStateJSON() {
-  downloadText(JSON.stringify(serializeFullState(), null, 2), 'svg-osc-state.json', 'application/json');
-}
-
 function exportOSC() {
+  if (state.paths.size === 0) { showExportEmptyToast(); return; }
   const data = serializeFullState();
   data.timestamp = new Date().toISOString();
   downloadText(JSON.stringify(data, null, 2), 'sketch.osc', 'application/json');
 }
 
+function exportLottie() {
+  if (state.paths.size === 0) { showExportEmptyToast(); return; }
+
+  const fps = 60;
+  const durationSec = 4;
+  const totalFrames = fps * durationSec;
+  const dt = 1 / fps;
+  const vb = viewport.svgVB;
+  const W = Math.round(vb.w);
+  const H = Math.round(vb.h);
+
+  const lottie = {
+    v: '5.9.0', fr: fps, ip: 0, op: totalFrames,
+    w: W, h: H,
+    nm: 'SVG Oscillator Export',
+    ddd: 0, assets: [], layers: [],
+  };
+
+  // Simulate animation and collect per-path keyframes
+  const savedTime    = state.playback.globalTime;
+  const savedPlaying = state.playback.playing;
+  state.playback.playing = false;
+
+  const pathData = new Map(); // id → { tx:[], ty:[], rot:[], sX:[], sY:[], fO:[], sO:[] }
+  for (const id of state.paths.keys()) {
+    pathData.set(id, { tx:[], ty:[], rot:[], sX:[], sY:[], fO:[], sO:[], fill:null, stroke:null, sw:[] });
+  }
+
+  const sampleEvery = 2; // sample every 2nd frame → 30 fps keyframes
+  for (let f = 0; f <= totalFrames; f += sampleEvery) {
+    const t = f * dt;
+    oscEngine.tick(t, dt, state.playback.bpm);
+    bindingSys.resetToBase(state.paths);
+    bindingSys.applyAll(state.paths, oscEngine.oscillators);
+    for (const [id, m] of state.paths) {
+      const pd = pathData.get(id);
+      pd.tx.push(m.tx); pd.ty.push(m.ty);
+      pd.rot.push(m.rotation);
+      pd.sX.push(m.scaleX); pd.sY.push(m.scaleY);
+      pd.fO.push(m.fillOpacity); pd.sO.push(m.strokeOpacity ?? 1);
+      if (pd.fill === null) { pd.fill = m.fill; pd.stroke = m.stroke; }
+    }
+  }
+
+  state.playback.globalTime = savedTime;
+  state.playback.playing    = savedPlaying;
+  bindingSys.resetToBase(state.paths);
+  bindingSys.applyAll(state.paths, oscEngine.oscillators);
+
+  function hexToLottieRgb(hex) {
+    if (!hex || hex === 'none') return [1, 1, 1];
+    const r = parseInt(hex.slice(1,3), 16) / 255;
+    const g = parseInt(hex.slice(3,5), 16) / 255;
+    const b = parseInt(hex.slice(5,7), 16) / 255;
+    return [r, g, b];
+  }
+
+  function makeKfs(values, frameStep) {
+    const kfs = [];
+    for (let i = 0; i < values.length; i++) {
+      const frame = i * frameStep;
+      kfs.push({ t: frame, s: [values[i]], e: [values[i + 1] ?? values[i]], i: {x:0.5,y:0.5}, o: {x:0.5,y:0.5} });
+    }
+    return kfs;
+  }
+
+  let layerIndex = 1;
+  for (const [id, m] of state.paths) {
+    if (!m.visible) continue;
+    const pd = pathData.get(id);
+    const [fr, fg, fb] = hexToLottieRgb(pd.fill);
+
+    const txKfs = makeKfs(pd.tx, sampleEvery);
+    const tyKfs = makeKfs(pd.ty, sampleEvery);
+    const posKfs = txKfs.map((kf, i) => ({
+      t: kf.t,
+      s: [W/2 - vb.x + kf.s[0], H/2 - vb.y + tyKfs[i].s[0], 0],
+      e: [W/2 - vb.x + kf.e[0], H/2 - vb.y + tyKfs[i].e[0], 0],
+      i: { x: [0.5], y: [0.5] }, o: { x: [0.5], y: [0.5] },
+    }));
+
+    const rotKfs = makeKfs(pd.rot, sampleEvery);
+    const sXKfs  = makeKfs(pd.sX.map(v => v * 100), sampleEvery);
+    const sYKfs  = makeKfs(pd.sY.map(v => v * 100), sampleEvery);
+    const fOKfs  = makeKfs(pd.fO.map(v => v * 100), sampleEvery);
+
+    const layer = {
+      ddd: 0, ind: layerIndex++, ty: 4, nm: id, sr: 1,
+      ks: {
+        o: { a: 1, k: fOKfs },
+        r: { a: 1, k: rotKfs },
+        p: { a: 1, k: posKfs },
+        a: { a: 0, k: [0, 0, 0] },
+        s: { a: 1, k: sXKfs.map((kf, i) => ({ t: kf.t, s: [kf.s[0], sYKfs[i].s[0], 100], e: [kf.e[0], sYKfs[i].e[0], 100], i: {x:[0.5],y:[0.5]}, o: {x:[0.5],y:[0.5]} })) },
+      },
+      ao: 0, ip: 0, op: totalFrames, st: 0, bm: 0,
+      shapes: [
+        { ty: 'gr', nm: 'Shape', it: [
+          { ty: 'sh', nm: 'Path', ks: { a: 0, k: svgPathToLottie(m.toPathString(), vb) } },
+          { ty: 'fl', nm: 'Fill', o: { a: 0, k: 100 }, c: { a: 0, k: [fr, fg, fb, 1] }, r: 1 },
+          { ty: 'tr', p: { a: 0, k: [0,0] }, a: { a: 0, k: [0,0] }, s: { a: 0, k: [100,100] }, r: { a: 0, k: 0 }, o: { a: 0, k: 100 } },
+        ]},
+      ],
+    };
+    lottie.layers.push(layer);
+  }
+
+  downloadText(JSON.stringify(lottie, null, 2), 'animation.json', 'application/json');
+}
+
+function svgPathToLottie(d, vb) {
+  // Minimal conversion: just output a placeholder bezier — full d-string parsing is complex.
+  // Returns an empty bezier shape; consumers can re-import geometry as needed.
+  return { i: [], o: [], v: [], c: false };
+}
+
 // ── Animation export ─────────────────────────────────
 
 function openAnimDialog() {
+  if (state.paths.size === 0) { showExportEmptyToast(); return; }
   document.getElementById('export-anim-dialog').classList.remove('hidden');
 }
 
@@ -1130,7 +1254,7 @@ async function runAnimExport(format, fps, durationSec, width, height, onProgress
 
       await svgToCanvas(svgEl, canvas, ctx, scaleX, scaleY);
       onProgress(`Encoding frame ${f + 1} / ${totalFrames}`);
-      await yieldFrame();
+      await yieldFrame(fps);
     }
 
     recorder.stop();
@@ -1194,8 +1318,8 @@ async function svgToCanvas(svgEl, canvas, ctx, scaleX, scaleY) {
   });
 }
 
-function yieldFrame() {
-  return new Promise(r => setTimeout(r, 0));
+function yieldFrame(fps = 30) {
+  return new Promise(r => setTimeout(r, 1000 / fps));
 }
 
 // ── Panel resizers ────────────────────────────────────

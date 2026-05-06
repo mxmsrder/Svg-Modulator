@@ -14,7 +14,15 @@ export class PathInspector {
 
     this._fillOpSlider    = null;
     this._strokeWSlider   = null;
+    this._strokeOpSlider  = null;
     this._boundPtId       = null; // which point's inputs are bound
+
+    this._recentColors = (() => {
+      try { return JSON.parse(localStorage.getItem('svg-osc-recent-colors') || '[]'); }
+      catch { return []; }
+    })();
+    this._fillSwatchesEl   = null;
+    this._strokeSwatchesEl = null;
 
     this._bindOps();
     this._bindAppearance();
@@ -55,6 +63,8 @@ export class PathInspector {
   // ── Appearance ──────────────────────────────────────
 
   _renderAppearance(model) {
+    this._ensureSwatchContainers();
+
     // Sync color inputs
     const fillInput   = document.getElementById('fill-color-input');
     const strokeInput = document.getElementById('stroke-color-input');
@@ -102,6 +112,43 @@ export class PathInspector {
     } else {
       this._strokeWSlider.set(model.strokeWidth);
     }
+
+    // Stroke opacity slider
+    const strokeOpWrap = document.getElementById('stroke-opacity-wrap');
+    if (strokeOpWrap) {
+      if (!this._strokeOpSlider) {
+        this._strokeOpSlider = new BoxSlider(strokeOpWrap, {
+          label: '', unit: '', min: 0, max: 1, step: 0, value: model.strokeOpacity ?? 1,
+          color: '#7b72ff',
+          onChange: v => {
+            const m = this.paths.get(this.selection.pathId);
+            if (m) { m.strokeOpacity = v; m.baseStrokeOpacity = v; }
+          },
+        });
+      } else {
+        this._strokeOpSlider.set(model.strokeOpacity ?? 1);
+      }
+    }
+
+    // Render recent swatches
+    if (this._fillSwatchesEl) {
+      this._renderSwatches(this._fillSwatchesEl, (c) => {
+        const m = this.paths.get(this.selection.pathId);
+        if (!m) return;
+        m.fill = c;
+        fillInput.value = c;
+        this.onModified();
+      });
+    }
+    if (this._strokeSwatchesEl) {
+      this._renderSwatches(this._strokeSwatchesEl, (c) => {
+        const m = this.paths.get(this.selection.pathId);
+        if (!m) return;
+        m.stroke = c;
+        strokeInput.value = c;
+        this.onModified();
+      });
+    }
   }
 
   _bindAppearance() {
@@ -110,11 +157,35 @@ export class PathInspector {
       if (!m || m.fill === 'none') return;
       m.fill = e.target.value;
     });
+    document.getElementById('fill-color-input').addEventListener('change', (e) => {
+      this._addRecentColor(e.target.value);
+      if (this._fillSwatchesEl) {
+        this._renderSwatches(this._fillSwatchesEl, (c) => {
+          const m = this.paths.get(this.selection.pathId);
+          if (!m) return;
+          m.fill = c;
+          e.target.value = c;
+          this.onModified();
+        });
+      }
+    });
 
     document.getElementById('stroke-color-input').addEventListener('input', (e) => {
       const m = this.paths.get(this.selection.pathId);
       if (!m || m.stroke === 'none') return;
       m.stroke = e.target.value;
+    });
+    document.getElementById('stroke-color-input').addEventListener('change', (e) => {
+      this._addRecentColor(e.target.value);
+      if (this._strokeSwatchesEl) {
+        this._renderSwatches(this._strokeSwatchesEl, (c) => {
+          const m = this.paths.get(this.selection.pathId);
+          if (!m) return;
+          m.stroke = c;
+          e.target.value = c;
+          this.onModified();
+        });
+      }
     });
 
     document.getElementById('btn-mode-fill').addEventListener('click', () => {
@@ -141,6 +212,45 @@ export class PathInspector {
       m.stroke = document.getElementById('stroke-color-input').value;
       this._renderAppearance(m);
     });
+  }
+
+  // ── Recent color swatches ─────────────────────────────
+
+  _addRecentColor(hex) {
+    if (!hex || hex.length !== 7) return;
+    this._recentColors = [hex, ...this._recentColors.filter(c => c !== hex)].slice(0, 8);
+    try { localStorage.setItem('svg-osc-recent-colors', JSON.stringify(this._recentColors)); } catch {}
+  }
+
+  _renderSwatches(container, onPick) {
+    container.innerHTML = '';
+    for (const c of this._recentColors) {
+      const s = document.createElement('button');
+      s.className = 'color-swatch';
+      s.style.background = c;
+      s.title = c;
+      s.addEventListener('click', () => onPick(c));
+      container.appendChild(s);
+    }
+  }
+
+  _ensureSwatchContainers() {
+    if (!this._fillSwatchesEl) {
+      const fillRow = document.getElementById('fill-color-input')?.closest('.app-color-row');
+      if (fillRow) {
+        this._fillSwatchesEl = document.createElement('div');
+        this._fillSwatchesEl.className = 'color-swatches';
+        fillRow.after(this._fillSwatchesEl);
+      }
+    }
+    if (!this._strokeSwatchesEl) {
+      const strokeRow = document.getElementById('stroke-color-input')?.closest('.app-color-row');
+      if (strokeRow) {
+        this._strokeSwatchesEl = document.createElement('div');
+        this._strokeSwatchesEl.className = 'color-swatches';
+        strokeRow.after(this._strokeSwatchesEl);
+      }
+    }
   }
 
   // ── Selected point detail ────────────────────────────

@@ -28,7 +28,7 @@ function pseudoRandom(n) {
 function lerp(a, b, t) { return a + (b - a) * t; }
 
 export const WAVEFORM_NAMES = Object.keys(WAVEFORMS);
-export const MODULATOR_TYPES = ['lfo', 'step', 'envelope', 'audio', 'track', 'expression', 'randomwalk', 'device'];
+export const MODULATOR_TYPES = ['lfo', 'step', 'envelope', 'audio', 'track', 'expression', 'randomwalk', 'device', 'phone'];
 
 // ────────────────────────────────────────────────────
 // Modulator (supports all types)
@@ -106,7 +106,8 @@ export class Oscillator {
     this.envSnap      = params.envSnap      ?? false;
 
     // ── Device sensor params ─────────────────────────
-    this.deviceSensor  = params.deviceSensor  ?? 'mouse-x';
+    // Phone type defaults to first phone sensor; device type defaults to mouse-x
+    this.deviceSensor  = params.deviceSensor  ?? (this.type === 'phone' ? 'phone-orient-alpha' : 'mouse-x');
     this.deviceScale   = params.deviceScale   ?? 1;
     this.deviceSmooth  = params.deviceSmooth  ?? 0.1;
     this._deviceRaw    = 0;
@@ -373,7 +374,7 @@ export class Oscillator {
         break; // updates every tick via new Date().getSeconds()
       default:
         // Phone sensors — connect via WebSocket bridge
-        if (this.deviceSensor.startsWith('phone-')) {
+        if (this.deviceSensor.startsWith('phone-') || this.type === 'phone') {
           this._connectPhone();
         }
     }
@@ -540,6 +541,7 @@ export class OscillatorEngine {
         case 'track':      osc._tickTrack(); break;
         case 'envelope':   osc._tickEnvelope(globalTimeSec, bpm); break;
         case 'device':     osc._tickDevice(dt); break;
+        case 'phone':      osc._tickDevice(dt); break;
         default:           osc._tickLFO(globalTimeSec);
       }
     }
