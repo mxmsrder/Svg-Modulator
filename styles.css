@@ -667,17 +667,17 @@ tr + tr > td { border-top: 1px solid var(--bg2); }
 .handle-pt { fill: none; stroke: rgba(255,255,255,0.55); }
 .handle-line { stroke: rgba(255,255,255,0.18); stroke-dasharray: 2 3; fill: none; }
 
-/* ── EXPORT DIALOG ──────────────────────────────────── */
-#export-anim-dialog {
+/* ── MODAL DIALOGS ───────────────────────────────────── */
+.dialog-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.75);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 500;
+  z-index: 9000;
 }
-#export-anim-dialog.hidden { display: none; }
+.dialog-overlay.hidden { display: none; }
 .dialog-box {
   background: var(--bg2);
   padding: 20px 24px;
