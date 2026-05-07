@@ -821,15 +821,17 @@ tr + tr > td { border-top: 1px solid var(--bg2); }
 /* Save slot row with hover-reveal delete button */
 .save-row {
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  gap: 4px;
   position: relative;
 }
 .save-row-btn {
   flex: 1;
   text-align: left;
-  padding: 4px 28px 4px 10px;
+  padding: 4px 10px;
   background: none;
   border: none;
+  border-radius: 3px;
   color: var(--text-mid);
   font-size: 10px;
   font-family: inherit;
@@ -840,19 +842,18 @@ tr + tr > td { border-top: 1px solid var(--bg2); }
 }
 .save-row-btn:hover { background: var(--bg4); color: var(--text); }
 .save-row-del {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  padding: 2px 5px;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  padding: 0;
   background: none;
   border: none;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: 14px;
+  line-height: 1;
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.15s;
-  z-index: 1;
 }
 .save-row:hover .save-row-del { opacity: 0.5; }
 .save-row-del:hover { opacity: 1 !important; color: var(--accent2); }

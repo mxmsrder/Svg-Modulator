@@ -100,43 +100,44 @@ const server = https.createServer(tls, onRequest);
 const wss = new WebSocketServer({ server, path: '/ws' });
 const editors = new Set();
 const phones  = new Set();
-let phoneCount = 0;
 
 wss.on('connection', (ws) => {
-  let role = 'editor';
+  // Role is established by the FIRST handshake message and never reclassified.
+  // Subsequent messages may carry sensor data without a `role` field — that's fine.
+  let role = null;
 
   ws.on('message', (raw) => {
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
 
-    if (msg.role === 'phone') {
-      if (!phones.has(ws)) {
+    if (role === null) {
+      if (msg.role === 'phone') {
+        role = 'phone';
         phones.add(ws);
-        editors.delete(ws);
-        phoneCount++;
-        console.log(`Phone connected (${phoneCount} active)`);
-        // Tell all editors a phone is now connected
+        console.log(`Phone connected (${phones.size} active)`);
         broadcast(editors, JSON.stringify({ type: 'phone-status', connected: phones.size }));
-      }
-      // Forward sensor payload to all editors
-      broadcast(editors, raw.toString());
-    } else {
-      if (!editors.has(ws)) {
+      } else {
+        role = 'editor';
         editors.add(ws);
-        phones.delete(ws);
-        // Tell editor current phone count
         ws.send(JSON.stringify({ type: 'phone-status', connected: phones.size }));
       }
+      return; // first message is handshake only — don't relay
+    }
+
+    // Forward all phone messages to editors (sensor data)
+    if (role === 'phone') {
+      broadcast(editors, raw.toString());
     }
   });
 
   ws.on('close', () => {
-    if (phones.has(ws)) {
+    if (role === 'phone') {
       phones.delete(ws);
       console.log(`Phone disconnected (${phones.size} remaining)`);
       broadcast(editors, JSON.stringify({ type: 'phone-status', connected: phones.size }));
+    } else {
+      editors.delete(ws);
     }
-    editors.delete(ws);
   });
 
   ws.on('error', () => {});

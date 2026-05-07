@@ -608,17 +608,13 @@ svgEl.addEventListener('click', (e) => {
         model.selected = false;
         state.selection.pathId = [...state.selection.pathIds].at(-1) ?? null;
         // Remove points of deselected path
-        for (let i = 0; i < model.points.length; i++) {
-          state.selection.pointIds.delete(`${pathId}:${i}`);
-        }
+        for (const pt of model.points) state.selection.pointIds.delete(pt.id);
       } else {
         state.selection.pathIds.add(pathId);
         model.selected = true;
         state.selection.pathId = pathId;
         // Add all points of newly selected path
-        for (let i = 0; i < model.points.length; i++) {
-          state.selection.pointIds.add(`${pathId}:${i}`);
-        }
+        for (const pt of model.points) state.selection.pointIds.add(pt.id);
       }
     } else {
       clearPathSelection();
@@ -626,9 +622,7 @@ svgEl.addEventListener('click', (e) => {
       state.selection.pathId = pathId;
       model.selected = true;
       // Select all points of clicked path
-      state.selection.pointIds = new Set(
-        model.points.map((_, i) => `${pathId}:${i}`)
-      );
+      state.selection.pointIds = new Set(model.points.map(p => p.id));
     }
     renderMultiSelectUI();
     if (state.selection.pathIds.size <= 1) { inspector.render(); }
@@ -699,9 +693,7 @@ viewport.onBackgroundPointerUp = (e) => {
         model.selected = true;
         state.selection.pathId = id;
         // Select all points of matched path
-        for (let i = 0; i < model.points.length; i++) {
-          state.selection.pointIds.add(`${id}:${i}`);
-        }
+        for (const pt of model.points) state.selection.pointIds.add(pt.id);
       }
     }
     renderMultiSelectUI();
@@ -1092,23 +1084,21 @@ function runLottieExport(fps, durationSec, showPoints) {
     ddd: 0, assets: [], layers: [],
   };
 
-  // Hide point overlay during export if not requested
-  const overlayG = document.getElementById('overlay-group');
-  const prevVis  = overlayG ? overlayG.style.visibility : '';
-  if (overlayG && !showPoints) overlayG.style.visibility = 'hidden';
+  // Sample every frame so the animation plays at full fidelity
+  const sampleEvery = 1;
+  const numSamples  = totalFrames + 1;
 
-  // Simulate animation and collect per-path keyframes
+  // Save current playback state
   const savedTime    = state.playback.globalTime;
   const savedPlaying = state.playback.playing;
   state.playback.playing = false;
 
   const pathData = new Map();
   for (const id of state.paths.keys()) {
-    pathData.set(id, { tx:[], ty:[], rot:[], sX:[], sY:[], fO:[], sO:[], fill:null, stroke:null });
+    pathData.set(id, { tx:[], ty:[], rot:[], sX:[], sY:[], fO:[], fill:null, stroke:null });
   }
 
-  const sampleEvery = Math.max(1, Math.round(fps / 30)); // target ~30 kf/s
-  for (let f = 0; f <= totalFrames; f += sampleEvery) {
+  for (let f = 0; f < numSamples; f++) {
     const t = f * dt;
     oscEngine.tick(t, dt, state.playback.bpm);
     bindingSys.resetToBase(state.paths);
@@ -1118,7 +1108,7 @@ function runLottieExport(fps, durationSec, showPoints) {
       pd.tx.push(m.tx); pd.ty.push(m.ty);
       pd.rot.push(m.rotation);
       pd.sX.push(m.scaleX); pd.sY.push(m.scaleY);
-      pd.fO.push(m.fillOpacity); pd.sO.push(m.strokeOpacity ?? 1);
+      pd.fO.push(m.fillOpacity);
       if (pd.fill === null) { pd.fill = m.fill; pd.stroke = m.stroke; }
     }
   }
@@ -1128,8 +1118,6 @@ function runLottieExport(fps, durationSec, showPoints) {
   bindingSys.resetToBase(state.paths);
   bindingSys.applyAll(state.paths, oscEngine.oscillators);
 
-  if (overlayG) overlayG.style.visibility = prevVis;
-
   function hexToLottieRgb(hex) {
     if (!hex || hex === 'none') return [1, 1, 1];
     const r = parseInt(hex.slice(1,3), 16) / 255;
@@ -1138,14 +1126,23 @@ function runLottieExport(fps, durationSec, showPoints) {
     return [r, g, b];
   }
 
-  function makeKfs1D(values, step) {
-    return values.map((v, i) => ({
-      t: i * step,
-      s: [v],
-      e: [values[i + 1] ?? v],
-      i: { x: [0.5], y: [0.5] },
-      o: { x: [0.5], y: [0.5] },
-    }));
+  // Modern Lottie keyframe format: just {t, s} per keyframe.
+  // The renderer linearly interpolates between consecutive keyframes.
+  function buildKfs(values, mapFn) {
+    const kfs = [];
+    let prev = null;
+    for (let i = 0; i < values.length; i++) {
+      const s = mapFn(values[i], i);
+      // Skip keyframes that are identical to the previous one (compact output)
+      if (prev !== null && _arrEq(prev, s) && i !== values.length - 1) continue;
+      kfs.push({ t: i * sampleEvery, s });
+      prev = s;
+    }
+    if (kfs.length < 2) {
+      // Static — emit a second keyframe so renderers detect "animated" properly
+      kfs.push({ t: totalFrames, s: kfs[0]?.s ?? [0] });
+    }
+    return kfs;
   }
 
   let layerIndex = 1;
@@ -1154,35 +1151,21 @@ function runLottieExport(fps, durationSec, showPoints) {
     const pd = pathData.get(id);
     const [fr, fg, fb] = hexToLottieRgb(pd.fill);
 
-    const posKfs = pd.tx.map((tx, i) => ({
-      t: i * sampleEvery,
-      s: [tx, pd.ty[i], 0],
-      e: [pd.tx[i + 1] ?? tx, pd.ty[i + 1] ?? pd.ty[i], 0],
-      i: { x: [0.5, 0.5, 0.5], y: [0.5, 0.5, 0.5] },
-      o: { x: [0.5, 0.5, 0.5], y: [0.5, 0.5, 0.5] },
-    }));
+    const posKfs = buildKfs(pd.tx, (tx, i) => [tx, pd.ty[i], 0]);
+    const rotKfs = buildKfs(pd.rot, v => [v]);
+    const scKfs  = buildKfs(pd.sX,  (sx, i) => [sx * 100, pd.sY[i] * 100, 100]);
+    const opKfs  = buildKfs(pd.fO,  v => [v * 100]);
 
-    const rotKfs = makeKfs1D(pd.rot, sampleEvery);
-    const sXKfs  = makeKfs1D(pd.sX.map(v => v * 100), sampleEvery);
-    const sYKfs  = makeKfs1D(pd.sY.map(v => v * 100), sampleEvery);
-    const fOKfs  = makeKfs1D(pd.fO.map(v => v * 100), sampleEvery);
-
-    // Build Lottie bezier from model points
     const bezier = _modelToLottieBezier(m, vb);
 
     const layer = {
       ddd: 0, ind: layerIndex++, ty: 4, nm: id, sr: 1,
       ks: {
-        o: { a: 1, k: fOKfs },
+        o: { a: 1, k: opKfs },
         r: { a: 1, k: rotKfs },
         p: { a: 1, k: posKfs },
         a: { a: 0, k: [0, 0, 0] },
-        s: { a: 1, k: sXKfs.map((kf, i) => ({
-          t: kf.t,
-          s: [kf.s[0], sYKfs[i].s[0], 100],
-          e: [kf.e[0], sYKfs[i].e[0], 100],
-          i: { x: [0.5], y: [0.5] }, o: { x: [0.5], y: [0.5] },
-        })) },
+        s: { a: 1, k: scKfs },
       },
       ao: 0, ip: 0, op: totalFrames, st: 0, bm: 0,
       shapes: [
@@ -1196,7 +1179,13 @@ function runLottieExport(fps, durationSec, showPoints) {
     lottie.layers.push(layer);
   }
 
-  downloadText(JSON.stringify(lottie, null, 2), 'animation.json', 'application/json');
+  downloadText(JSON.stringify(lottie), 'animation.json', 'application/json');
+}
+
+function _arrEq(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > 1e-6) return false;
+  return true;
 }
 
 function _modelToLottieBezier(model, vb) {

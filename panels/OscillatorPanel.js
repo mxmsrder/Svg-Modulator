@@ -1006,30 +1006,15 @@ export class OscillatorPanel {
     sensorRow.style.paddingBottom = '4px';
 
     const SENSORS = [
-      // Desktop
-      ['mouse-x',              'Mouse X (0-100)'],
-      ['mouse-y',              'Mouse Y (0-100)'],
-      ['battery',              'Battery (0-100%)'],
-      ['clock',                'Clock (0-59 sec)'],
-      ['light',                'Ambient Light (lux)'],
-      // Phone via WebSocket bridge (server.js)
-      ['phone-orient-alpha',   'Phone: Compass/Yaw (0-360°)'],
-      ['phone-orient-beta',    'Phone: Front/Back tilt (±180°)'],
-      ['phone-orient-gamma',   'Phone: Left/Right tilt (±90°)'],
-      ['phone-accel-x',        'Phone: Accel X (m/s²)'],
-      ['phone-accel-y',        'Phone: Accel Y (m/s²)'],
-      ['phone-accel-z',        'Phone: Accel Z (m/s²)'],
-      ['phone-gravity-x',      'Phone: Gravity X (m/s²)'],
-      ['phone-gravity-y',      'Phone: Gravity Y (m/s²)'],
-      ['phone-gravity-z',      'Phone: Gravity Z (m/s²)'],
-      ['phone-rotation-alpha', 'Phone: Gyro Yaw (°/s)'],
-      ['phone-rotation-beta',  'Phone: Gyro Pitch (°/s)'],
-      ['phone-rotation-gamma', 'Phone: Gyro Roll (°/s)'],
-      ['phone-battery',        'Phone: Battery (0-100%)'],
-      ['phone-touch',          'Phone: Touch (0/1)'],
-      ['phone-gps-speed',      'Phone: GPS Speed (m/s)'],
-      ['phone-gps-altitude',   'Phone: GPS Altitude (m)'],
+      ['mouse-x', 'Mouse X (0-100)'],
+      ['mouse-y', 'Mouse Y (0-100)'],
+      ['battery', 'Battery (0-100%)'],
+      ['clock',   'Clock (0-59 sec)'],
+      ['light',   'Ambient Light (lux)'],
     ];
+
+    // If a saved sketch had a phone-* device sensor, fall back to mouse-x
+    if (osc.deviceSensor.startsWith('phone-')) osc.deviceSensor = 'mouse-x';
 
     const { wrap: ddWrap } = this._buildSensorDropdown(SENSORS, osc.deviceSensor, async (val) => {
       osc.stopDevice?.();
@@ -1037,22 +1022,9 @@ export class OscillatorPanel {
       osc._deviceRaw   = 0;
       osc._deviceLevel = 0;
       await osc.initDevice?.();
-      infoBtn.style.display = val.startsWith('phone-') ? '' : 'none';
       this.onChange();
     });
     sensorRow.appendChild(ddWrap);
-
-    // Info button for phone sensors
-    const infoBtn = document.createElement('button');
-    infoBtn.className = 'osc-info-btn';
-    infoBtn.textContent = 'ℹ';
-    infoBtn.title = 'How to connect iPhone';
-    infoBtn.style.display = osc.deviceSensor.startsWith('phone-') ? '' : 'none';
-    infoBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this._showPhoneInfo(infoBtn);
-    });
-    sensorRow.appendChild(infoBtn);
 
     body.appendChild(sensorRow);
 
