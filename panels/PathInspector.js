@@ -21,12 +21,15 @@ export class PathInspector {
       try { return JSON.parse(localStorage.getItem('svg-osc-recent-colors') || '[]'); }
       catch { return []; }
     })();
-    this._fillSwatchesEl   = null;
-    this._strokeSwatchesEl = null;
+
+    // Swatch containers live inside the color picker popup
+    this._fillSwatchesEl   = document.getElementById('cpp-fill-swatches');
+    this._strokeSwatchesEl = document.getElementById('cpp-stroke-swatches');
 
     this._bindOps();
     this._bindAppearance();
     this._bindPointInputs();
+    this._bindColorPopup();
   }
 
   render() {
@@ -63,18 +66,24 @@ export class PathInspector {
   // ── Appearance ──────────────────────────────────────
 
   _renderAppearance(model) {
-    this._ensureSwatchContainers();
+    const fillPreview   = document.getElementById('fill-color-preview');
+    const strokePreview = document.getElementById('stroke-color-preview');
+    const fillInput     = document.getElementById('fill-color-input');
+    const strokeInput   = document.getElementById('stroke-color-input');
 
-    // Sync color inputs
-    const fillInput   = document.getElementById('fill-color-input');
-    const strokeInput = document.getElementById('stroke-color-input');
+    const fillHex   = (model.fill   && model.fill   !== 'none') ? (rgbToHex(model.fill)   || '#ffffff') : null;
+    const strokeHex = (model.stroke && model.stroke !== 'none') ? (rgbToHex(model.stroke) || '#ffffff') : null;
 
-    if (model.fill && model.fill !== 'none') {
-      fillInput.value = rgbToHex(model.fill) || fillInput.value;
+    if (fillPreview) {
+      fillPreview.style.background = fillHex ?? 'transparent';
+      fillPreview.style.border = fillHex ? '' : '1px dashed rgba(255,255,255,0.3)';
     }
-    if (model.stroke && model.stroke !== 'none') {
-      strokeInput.value = rgbToHex(model.stroke) || strokeInput.value;
+    if (strokePreview) {
+      strokePreview.style.background = strokeHex ?? 'transparent';
+      strokePreview.style.border = strokeHex ? '' : '1px dashed rgba(255,255,255,0.3)';
     }
+    if (fillInput   && fillHex)   fillInput.value   = fillHex;
+    if (strokeInput && strokeHex) strokeInput.value = strokeHex;
 
     // Active mode buttons
     const fillNone   = model.fill   === 'none';
@@ -130,13 +139,14 @@ export class PathInspector {
       }
     }
 
-    // Render recent swatches
+    // Render recent swatches in popup
     if (this._fillSwatchesEl) {
       this._renderSwatches(this._fillSwatchesEl, (c) => {
         const m = this.paths.get(this.selection.pathId);
         if (!m) return;
         m.fill = c;
-        fillInput.value = c;
+        if (fillInput)   fillInput.value = c;
+        if (fillPreview) fillPreview.style.background = c;
         this.onModified();
       });
     }
@@ -145,44 +155,56 @@ export class PathInspector {
         const m = this.paths.get(this.selection.pathId);
         if (!m) return;
         m.stroke = c;
-        strokeInput.value = c;
+        if (strokeInput)   strokeInput.value = c;
+        if (strokePreview) strokePreview.style.background = c;
         this.onModified();
       });
     }
   }
 
   _bindAppearance() {
-    document.getElementById('fill-color-input').addEventListener('input', (e) => {
+    const fillInput   = document.getElementById('fill-color-input');
+    const strokeInput = document.getElementById('stroke-color-input');
+
+    fillInput?.addEventListener('input', (e) => {
       const m = this.paths.get(this.selection.pathId);
       if (!m || m.fill === 'none') return;
       m.fill = e.target.value;
+      const prev = document.getElementById('fill-color-preview');
+      if (prev) prev.style.background = e.target.value;
     });
-    document.getElementById('fill-color-input').addEventListener('change', (e) => {
+    fillInput?.addEventListener('change', (e) => {
       this._addRecentColor(e.target.value);
       if (this._fillSwatchesEl) {
         this._renderSwatches(this._fillSwatchesEl, (c) => {
           const m = this.paths.get(this.selection.pathId);
           if (!m) return;
           m.fill = c;
-          e.target.value = c;
+          fillInput.value = c;
+          const prev = document.getElementById('fill-color-preview');
+          if (prev) prev.style.background = c;
           this.onModified();
         });
       }
     });
 
-    document.getElementById('stroke-color-input').addEventListener('input', (e) => {
+    strokeInput?.addEventListener('input', (e) => {
       const m = this.paths.get(this.selection.pathId);
       if (!m || m.stroke === 'none') return;
       m.stroke = e.target.value;
+      const prev = document.getElementById('stroke-color-preview');
+      if (prev) prev.style.background = e.target.value;
     });
-    document.getElementById('stroke-color-input').addEventListener('change', (e) => {
+    strokeInput?.addEventListener('change', (e) => {
       this._addRecentColor(e.target.value);
       if (this._strokeSwatchesEl) {
         this._renderSwatches(this._strokeSwatchesEl, (c) => {
           const m = this.paths.get(this.selection.pathId);
           if (!m) return;
           m.stroke = c;
-          e.target.value = c;
+          strokeInput.value = c;
+          const prev = document.getElementById('stroke-color-preview');
+          if (prev) prev.style.background = c;
           this.onModified();
         });
       }
@@ -191,7 +213,7 @@ export class PathInspector {
     document.getElementById('btn-mode-fill').addEventListener('click', () => {
       const m = this.paths.get(this.selection.pathId);
       if (!m) return;
-      m.fill   = document.getElementById('fill-color-input').value;
+      m.fill   = fillInput?.value || '#ffffff';
       m.stroke = 'none';
       this._renderAppearance(m);
     });
@@ -200,7 +222,7 @@ export class PathInspector {
       const m = this.paths.get(this.selection.pathId);
       if (!m) return;
       m.fill   = 'none';
-      m.stroke = document.getElementById('stroke-color-input').value;
+      m.stroke = strokeInput?.value || '#ffffff';
       this._strokeWSlider?.set(m.strokeWidth > 0 ? m.strokeWidth : 1);
       this._renderAppearance(m);
     });
@@ -208,9 +230,41 @@ export class PathInspector {
     document.getElementById('btn-mode-both').addEventListener('click', () => {
       const m = this.paths.get(this.selection.pathId);
       if (!m) return;
-      m.fill   = document.getElementById('fill-color-input').value;
-      m.stroke = document.getElementById('stroke-color-input').value;
+      m.fill   = fillInput?.value   || '#ffffff';
+      m.stroke = strokeInput?.value || '#ffffff';
       this._renderAppearance(m);
+    });
+  }
+
+  // ── Color picker popup ────────────────────────────────
+
+  _bindColorPopup() {
+    const popup       = document.getElementById('color-picker-popup');
+    const fillPreview = document.getElementById('fill-color-preview');
+    const strokePreview = document.getElementById('stroke-color-preview');
+    if (!popup) return;
+
+    const openPopup = (anchorEl) => {
+      popup.hidden = false;
+      // Position near the anchor button
+      const rect  = anchorEl.getBoundingClientRect();
+      const panel = document.getElementById('inspector-panel');
+      const pRect = panel ? panel.getBoundingClientRect() : { left: 0 };
+      const left  = Math.max(8, pRect.left - 200);
+      popup.style.top  = Math.max(8, rect.top - 10) + 'px';
+      popup.style.left = left + 'px';
+    };
+
+    fillPreview?.addEventListener('click', (e) => { e.stopPropagation(); openPopup(fillPreview); });
+    strokePreview?.addEventListener('click', (e) => { e.stopPropagation(); openPopup(strokePreview); });
+
+    popup.querySelector('.cpp-close-btn')?.addEventListener('click', () => { popup.hidden = true; });
+
+    document.addEventListener('click', (e) => {
+      if (!popup.hidden && !popup.contains(e.target) &&
+          e.target !== fillPreview && e.target !== strokePreview) {
+        popup.hidden = true;
+      }
     });
   }
 
@@ -231,25 +285,6 @@ export class PathInspector {
       s.title = c;
       s.addEventListener('click', () => onPick(c));
       container.appendChild(s);
-    }
-  }
-
-  _ensureSwatchContainers() {
-    if (!this._fillSwatchesEl) {
-      const fillRow = document.getElementById('fill-color-input')?.closest('.app-color-row');
-      if (fillRow) {
-        this._fillSwatchesEl = document.createElement('div');
-        this._fillSwatchesEl.className = 'color-swatches';
-        fillRow.after(this._fillSwatchesEl);
-      }
-    }
-    if (!this._strokeSwatchesEl) {
-      const strokeRow = document.getElementById('stroke-color-input')?.closest('.app-color-row');
-      if (strokeRow) {
-        this._strokeSwatchesEl = document.createElement('div');
-        this._strokeSwatchesEl.className = 'color-swatches';
-        strokeRow.after(this._strokeSwatchesEl);
-      }
     }
   }
 

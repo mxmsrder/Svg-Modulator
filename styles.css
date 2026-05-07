@@ -969,12 +969,78 @@ tr + tr > td { border-top: 1px solid var(--bg2); }
 }
 .export-toast.visible { opacity: 1; }
 
+/* ── SLIDER ROW ──────────────────────────────────────── */
+.slider-row {
+  padding: 2px 0;
+}
+.slider-row > div { width: 100%; }
+
+/* ── COLOR PREVIEW BUTTON ────────────────────────────── */
+.color-preview-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.2);
+  cursor: pointer;
+  flex-shrink: 0;
+  background: #888;
+  padding: 0;
+  transition: border-color 0.1s;
+}
+.color-preview-btn:hover { border-color: rgba(255,255,255,0.6); }
+
+/* ── COLOR PICKER POPUP ──────────────────────────────── */
+.color-picker-popup {
+  position: fixed;
+  z-index: 8000;
+  background: var(--bg2);
+  border: 1px solid var(--bg4);
+  border-radius: 8px;
+  padding: 10px;
+  min-width: 180px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.cpp-section { padding: 4px 0; }
+.cpp-section-label {
+  font-size: 9px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+.cpp-color-input {
+  width: 100%;
+  height: 32px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+  background: none;
+}
+.cpp-divider {
+  height: 1px;
+  background: var(--bg4);
+  margin: 6px 0;
+}
+.cpp-close-btn {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+.cpp-close-btn:hover { color: var(--text); }
+
 /* ── COLOR SWATCHES ──────────────────────────────────── */
 .color-swatches {
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
-  padding: 4px 10px;
+  padding: 4px 0;
 }
 .color-swatch {
   width: 16px;

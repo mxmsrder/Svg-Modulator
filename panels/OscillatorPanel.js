@@ -1164,26 +1164,39 @@ export class OscillatorPanel {
     // Remove any existing popover
     document.querySelector('.phone-info-popover')?.remove();
 
-    const host = location.hostname || 'your-ip';
-    const url  = `https://${host}:3443/phone.html`;
-
     const pop = document.createElement('div');
     pop.className = 'phone-info-popover';
-    pop.innerHTML = `
-      <div class="pip-title">Connect iPhone</div>
-      <div class="pip-step">1. On your computer, run:<br><code>node server.js</code></div>
-      <div class="pip-step">2. Open on iPhone (Safari):<br><a class="pip-url" href="${url}" target="_blank">${url}</a></div>
-      <div class="pip-step">3. Tap <b>Start Sharing</b> and allow sensor access.</div>
-      <div class="pip-step">4. Both devices must be on the same Wi-Fi.</div>
-      <button class="pip-close">✕</button>
-    `;
-    pop.querySelector('.pip-close').addEventListener('click', () => pop.remove());
+
+    const renderPop = (ips) => {
+      const port = 3443;
+      const lanIP = ips.length ? ips[0] : (location.hostname || 'your-lan-ip');
+      const url   = `https://${lanIP}:${port}/phone.html`;
+      pop.innerHTML = `
+        <div class="pip-title">Connect iPhone</div>
+        <div class="pip-step">1. Start the server on your computer:<br><code>node server.js</code></div>
+        <div class="pip-step">2. Open on iPhone (Safari):<br><a class="pip-url" href="${url}" target="_blank">${url}</a></div>
+        ${ips.length > 1 ? `<div class="pip-step pip-ips">Other IPs: ${ips.slice(1).map(ip => `<code>${ip}</code>`).join(', ')}</div>` : ''}
+        <div class="pip-step">3. Tap <b>Start Sharing</b> and allow sensor access.</div>
+        <div class="pip-step">4. Both devices must be on the same Wi-Fi.</div>
+        <button class="pip-close">✕</button>
+      `;
+      pop.querySelector('.pip-close').addEventListener('click', () => pop.remove());
+    };
+
+    // Show with current hostname first, then update when server-info arrives
+    renderPop([]);
     document.body.appendChild(pop);
 
     // Position near the anchor
     const rect = anchorEl.getBoundingClientRect();
     pop.style.top  = (rect.bottom + 6) + 'px';
     pop.style.left = Math.max(8, rect.left - 160) + 'px';
+
+    // Fetch LAN IPs from server
+    fetch('/api/server-info')
+      .then(r => r.json())
+      .then(({ ips }) => { if (pop.isConnected) renderPop(ips); })
+      .catch(() => {}); // server may not be running; fallback already shown
 
     // Close on outside click
     setTimeout(() => {

@@ -1013,7 +1013,7 @@ document.getElementById('export-menu').querySelectorAll('button').forEach(btn =>
     const action = btn.dataset.action;
     if (action === 'export-svg')    exportStaticSVG();
     if (action === 'export-osc')    exportOSC();
-    if (action === 'export-lottie') exportLottie();
+    if (action === 'export-lottie') openLottieDialog();
     if (action === 'export-anim')   openAnimDialog();
   });
 });
@@ -1061,16 +1061,29 @@ function exportOSC() {
   downloadText(JSON.stringify(data, null, 2), 'sketch.osc', 'application/json');
 }
 
-function exportLottie() {
+function openLottieDialog() {
   if (state.paths.size === 0) { showExportEmptyToast(); return; }
+  document.getElementById('export-lottie-dialog').classList.remove('hidden');
+}
 
-  const fps = 60;
-  const durationSec = 4;
-  const totalFrames = fps * durationSec;
-  const dt = 1 / fps;
-  const vb = viewport.svgVB;
-  const W = Math.round(vb.w);
-  const H = Math.round(vb.h);
+document.getElementById('lottie-cancel-btn').addEventListener('click', () => {
+  document.getElementById('export-lottie-dialog').classList.add('hidden');
+});
+
+document.getElementById('lottie-start-btn').addEventListener('click', () => {
+  const fps         = parseInt(document.getElementById('lottie-fps').value, 10) || 30;
+  const durationSec = parseFloat(document.getElementById('lottie-duration').value) || 4;
+  const showPts     = document.getElementById('lottie-show-points').checked;
+  document.getElementById('export-lottie-dialog').classList.add('hidden');
+  runLottieExport(fps, durationSec, showPts);
+});
+
+function runLottieExport(fps, durationSec, showPoints) {
+  const totalFrames = Math.round(fps * durationSec);
+  const dt  = 1 / fps;
+  const vb  = viewport.svgVB;
+  const W   = Math.round(vb.w);
+  const H   = Math.round(vb.h);
 
   const lottie = {
     v: '5.9.0', fr: fps, ip: 0, op: totalFrames,
@@ -1079,17 +1092,22 @@ function exportLottie() {
     ddd: 0, assets: [], layers: [],
   };
 
+  // Hide point overlay during export if not requested
+  const overlayG = document.getElementById('overlay-group');
+  const prevVis  = overlayG ? overlayG.style.visibility : '';
+  if (overlayG && !showPoints) overlayG.style.visibility = 'hidden';
+
   // Simulate animation and collect per-path keyframes
   const savedTime    = state.playback.globalTime;
   const savedPlaying = state.playback.playing;
   state.playback.playing = false;
 
-  const pathData = new Map(); // id → { tx:[], ty:[], rot:[], sX:[], sY:[], fO:[], sO:[] }
+  const pathData = new Map();
   for (const id of state.paths.keys()) {
-    pathData.set(id, { tx:[], ty:[], rot:[], sX:[], sY:[], fO:[], sO:[], fill:null, stroke:null, sw:[] });
+    pathData.set(id, { tx:[], ty:[], rot:[], sX:[], sY:[], fO:[], sO:[], fill:null, stroke:null });
   }
 
-  const sampleEvery = 2; // sample every 2nd frame → 30 fps keyframes
+  const sampleEvery = Math.max(1, Math.round(fps / 30)); // target ~30 kf/s
   for (let f = 0; f <= totalFrames; f += sampleEvery) {
     const t = f * dt;
     oscEngine.tick(t, dt, state.playback.bpm);
@@ -1110,6 +1128,8 @@ function exportLottie() {
   bindingSys.resetToBase(state.paths);
   bindingSys.applyAll(state.paths, oscEngine.oscillators);
 
+  if (overlayG) overlayG.style.visibility = prevVis;
+
   function hexToLottieRgb(hex) {
     if (!hex || hex === 'none') return [1, 1, 1];
     const r = parseInt(hex.slice(1,3), 16) / 255;
@@ -1118,13 +1138,14 @@ function exportLottie() {
     return [r, g, b];
   }
 
-  function makeKfs(values, frameStep) {
-    const kfs = [];
-    for (let i = 0; i < values.length; i++) {
-      const frame = i * frameStep;
-      kfs.push({ t: frame, s: [values[i]], e: [values[i + 1] ?? values[i]], i: {x:0.5,y:0.5}, o: {x:0.5,y:0.5} });
-    }
-    return kfs;
+  function makeKfs1D(values, step) {
+    return values.map((v, i) => ({
+      t: i * step,
+      s: [v],
+      e: [values[i + 1] ?? v],
+      i: { x: [0.5], y: [0.5] },
+      o: { x: [0.5], y: [0.5] },
+    }));
   }
 
   let layerIndex = 1;
@@ -1133,19 +1154,21 @@ function exportLottie() {
     const pd = pathData.get(id);
     const [fr, fg, fb] = hexToLottieRgb(pd.fill);
 
-    const txKfs = makeKfs(pd.tx, sampleEvery);
-    const tyKfs = makeKfs(pd.ty, sampleEvery);
-    const posKfs = txKfs.map((kf, i) => ({
-      t: kf.t,
-      s: [W/2 - vb.x + kf.s[0], H/2 - vb.y + tyKfs[i].s[0], 0],
-      e: [W/2 - vb.x + kf.e[0], H/2 - vb.y + tyKfs[i].e[0], 0],
-      i: { x: [0.5], y: [0.5] }, o: { x: [0.5], y: [0.5] },
+    const posKfs = pd.tx.map((tx, i) => ({
+      t: i * sampleEvery,
+      s: [tx, pd.ty[i], 0],
+      e: [pd.tx[i + 1] ?? tx, pd.ty[i + 1] ?? pd.ty[i], 0],
+      i: { x: [0.5, 0.5, 0.5], y: [0.5, 0.5, 0.5] },
+      o: { x: [0.5, 0.5, 0.5], y: [0.5, 0.5, 0.5] },
     }));
 
-    const rotKfs = makeKfs(pd.rot, sampleEvery);
-    const sXKfs  = makeKfs(pd.sX.map(v => v * 100), sampleEvery);
-    const sYKfs  = makeKfs(pd.sY.map(v => v * 100), sampleEvery);
-    const fOKfs  = makeKfs(pd.fO.map(v => v * 100), sampleEvery);
+    const rotKfs = makeKfs1D(pd.rot, sampleEvery);
+    const sXKfs  = makeKfs1D(pd.sX.map(v => v * 100), sampleEvery);
+    const sYKfs  = makeKfs1D(pd.sY.map(v => v * 100), sampleEvery);
+    const fOKfs  = makeKfs1D(pd.fO.map(v => v * 100), sampleEvery);
+
+    // Build Lottie bezier from model points
+    const bezier = _modelToLottieBezier(m, vb);
 
     const layer = {
       ddd: 0, ind: layerIndex++, ty: 4, nm: id, sr: 1,
@@ -1154,14 +1177,19 @@ function exportLottie() {
         r: { a: 1, k: rotKfs },
         p: { a: 1, k: posKfs },
         a: { a: 0, k: [0, 0, 0] },
-        s: { a: 1, k: sXKfs.map((kf, i) => ({ t: kf.t, s: [kf.s[0], sYKfs[i].s[0], 100], e: [kf.e[0], sYKfs[i].e[0], 100], i: {x:[0.5],y:[0.5]}, o: {x:[0.5],y:[0.5]} })) },
+        s: { a: 1, k: sXKfs.map((kf, i) => ({
+          t: kf.t,
+          s: [kf.s[0], sYKfs[i].s[0], 100],
+          e: [kf.e[0], sYKfs[i].e[0], 100],
+          i: { x: [0.5], y: [0.5] }, o: { x: [0.5], y: [0.5] },
+        })) },
       },
       ao: 0, ip: 0, op: totalFrames, st: 0, bm: 0,
       shapes: [
         { ty: 'gr', nm: 'Shape', it: [
-          { ty: 'sh', nm: 'Path', ks: { a: 0, k: svgPathToLottie(m.toPathString(), vb) } },
+          { ty: 'sh', nm: 'Path', ks: { a: 0, k: bezier } },
           { ty: 'fl', nm: 'Fill', o: { a: 0, k: 100 }, c: { a: 0, k: [fr, fg, fb, 1] }, r: 1 },
-          { ty: 'tr', p: { a: 0, k: [0,0] }, a: { a: 0, k: [0,0] }, s: { a: 0, k: [100,100] }, r: { a: 0, k: 0 }, o: { a: 0, k: 100 } },
+          { ty: 'tr', p: { a:0, k:[0,0] }, a: { a:0, k:[0,0] }, s: { a:0, k:[100,100] }, r: { a:0, k:0 }, o: { a:0, k:100 } },
         ]},
       ],
     };
@@ -1171,10 +1199,18 @@ function exportLottie() {
   downloadText(JSON.stringify(lottie, null, 2), 'animation.json', 'application/json');
 }
 
-function svgPathToLottie(d, vb) {
-  // Minimal conversion: just output a placeholder bezier — full d-string parsing is complex.
-  // Returns an empty bezier shape; consumers can re-import geometry as needed.
-  return { i: [], o: [], v: [], c: false };
+function _modelToLottieBezier(model, vb) {
+  const pts = model.points;
+  if (!pts.length) return { i: [], o: [], v: [], c: false };
+  const v = [], i = [], o = [];
+  for (const pt of pts) {
+    // Vertices in composition space (SVG coords offset by viewBox origin)
+    v.push([pt.baseX - vb.x, pt.baseY - vb.y]);
+    // Handles relative to their vertex
+    i.push(pt.handleIn  ? [pt.handleIn.baseX  - pt.baseX, pt.handleIn.baseY  - pt.baseY] : [0, 0]);
+    o.push(pt.handleOut ? [pt.handleOut.baseX - pt.baseX, pt.handleOut.baseY - pt.baseY] : [0, 0]);
+  }
+  return { v, i, o, c: model.closed };
 }
 
 // ── Animation export ─────────────────────────────────
@@ -1189,11 +1225,12 @@ document.getElementById('exp-cancel-btn').addEventListener('click', () => {
 });
 
 document.getElementById('exp-start-btn').addEventListener('click', async () => {
-  const format   = document.getElementById('exp-format').value;
-  const fps      = parseInt(document.getElementById('exp-fps').value, 10) || 30;
-  const duration = parseFloat(document.getElementById('exp-duration').value) || 3;
-  const width    = parseInt(document.getElementById('exp-width').value, 10)  || 1920;
-  const height   = parseInt(document.getElementById('exp-height').value, 10) || 1080;
+  const format    = document.getElementById('exp-format').value;
+  const fps       = parseInt(document.getElementById('exp-fps').value, 10) || 30;
+  const duration  = parseFloat(document.getElementById('exp-duration').value) || 3;
+  const width     = parseInt(document.getElementById('exp-width').value, 10)  || 1920;
+  const height    = parseInt(document.getElementById('exp-height').value, 10) || 1080;
+  const showPts   = document.getElementById('exp-show-points').checked;
 
   const startBtn = document.getElementById('exp-start-btn');
   const prog     = document.getElementById('exp-progress');
@@ -1201,7 +1238,7 @@ document.getElementById('exp-start-btn').addEventListener('click', async () => {
   prog.textContent  = 'Preparing…';
 
   try {
-    await runAnimExport(format, fps, duration, width, height, (msg) => { prog.textContent = msg; });
+    await runAnimExport(format, fps, duration, width, height, showPts, (msg) => { prog.textContent = msg; });
     prog.textContent = '✓ Done!';
   } catch(e) {
     prog.textContent = 'Error: ' + e.message;
@@ -1215,7 +1252,7 @@ document.getElementById('exp-start-btn').addEventListener('click', async () => {
   }, 2000);
 });
 
-async function runAnimExport(format, fps, durationSec, width, height, onProgress) {
+async function runAnimExport(format, fps, durationSec, width, height, showPoints, onProgress) {
   const totalFrames = Math.round(durationSec * fps);
   const dt          = 1 / fps;
 
@@ -1229,6 +1266,11 @@ async function runAnimExport(format, fps, durationSec, width, height, onProgress
   const savedTime    = state.playback.globalTime;
   const savedPlaying = state.playback.playing;
   state.playback.playing = false;
+
+  // Hide point overlay during export if not requested
+  const ovG    = document.getElementById('overlay-group');
+  const prevVis = ovG ? ovG.style.visibility : '';
+  if (ovG && !showPoints) ovG.style.visibility = 'hidden';
 
   // Compute SVG element's current display rect for aspect-correct scaling
   const svgRect = svgEl.getBoundingClientRect();
@@ -1289,9 +1331,10 @@ async function runAnimExport(format, fps, durationSec, width, height, onProgress
     downloadBlob(zipBlob, 'animation_frames.zip');
   }
 
-  // Restore playback state
+  // Restore playback state and overlay visibility
   state.playback.globalTime = savedTime;
   state.playback.playing    = savedPlaying;
+  if (ovG) ovG.style.visibility = prevVis;
 }
 
 async function svgToCanvas(svgEl, canvas, ctx, scaleX, scaleY) {

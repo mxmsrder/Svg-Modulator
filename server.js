@@ -54,6 +54,17 @@ function onRequest(req, res) {
   let urlPath = req.url.split('?')[0];
   if (urlPath === '/') urlPath = '/index.html';
 
+  // API: return LAN IPs so the editor can display the correct phone URL
+  if (urlPath === '/api/server-info') {
+    const ifaces = require('os').networkInterfaces();
+    const ips = Object.values(ifaces).flat()
+      .filter(i => i.family === 'IPv4' && !i.internal)
+      .map(i => i.address);
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
+    res.end(JSON.stringify({ port: PORT, ips }));
+    return;
+  }
+
   const filePath = path.join(ROOT, urlPath);
   // Prevent directory traversal
   if (!filePath.startsWith(ROOT + path.sep) && filePath !== ROOT) {
@@ -162,3 +173,6 @@ const redir = http.createServer((req, res) => {
   res.end();
 });
 redir.listen(8080, () => console.log('HTTP redirect: http://localhost:8080 → HTTPS'));
+
+process.on('SIGINT',  () => { console.log('\nShutting down…'); process.exit(0); });
+process.on('SIGTERM', () => { process.exit(0); });

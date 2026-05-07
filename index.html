@@ -133,14 +133,14 @@
           <div class="app-color-row">
             <span class="app-color-label">FILL</span>
             <input type="color" id="multi-fill-color" value="#ffffff">
-            <div style="flex:1" id="multi-fill-opacity-wrap"></div>
           </div>
+          <div class="slider-row"><div id="multi-fill-opacity-wrap"></div></div>
           <div class="app-color-row">
             <span class="app-color-label">STROKE</span>
             <input type="color" id="multi-stroke-color" value="#ffffff">
-            <div style="flex:1" id="multi-stroke-width-wrap"></div>
-            <div style="flex:1" id="multi-stroke-opacity-wrap"></div>
           </div>
+          <div class="slider-row"><div id="multi-stroke-width-wrap"></div></div>
+          <div class="slider-row"><div id="multi-stroke-opacity-wrap"></div></div>
         </div>
       </div>
 
@@ -169,15 +169,15 @@
           </div>
           <div class="app-color-row" id="fill-row">
             <span class="app-color-label">FILL</span>
-            <input type="color" id="fill-color-input" value="#ffffff">
-            <div style="flex:1" id="fill-opacity-wrap"></div>
+            <button class="color-preview-btn" id="fill-color-preview" title="Pick fill color"></button>
           </div>
+          <div class="slider-row"><div id="fill-opacity-wrap"></div></div>
           <div class="app-color-row" id="stroke-row">
             <span class="app-color-label">STROKE</span>
-            <input type="color" id="stroke-color-input" value="#ffffff">
-            <div style="flex:1" id="stroke-width-wrap"></div>
-            <div style="flex:1" id="stroke-opacity-wrap"></div>
+            <button class="color-preview-btn" id="stroke-color-preview" title="Pick stroke color"></button>
           </div>
+          <div class="slider-row"><div id="stroke-width-wrap"></div></div>
+          <div class="slider-row"><div id="stroke-opacity-wrap"></div></div>
         </div>
 
         <!-- Selected point detail -->
@@ -276,12 +276,55 @@
         <label>Height</label>
         <input type="number" id="exp-height" value="1080" min="100" max="4096" step="2" class="num-input">
       </div>
+      <div class="dialog-row">
+        <label>Include points</label>
+        <input type="checkbox" id="exp-show-points">
+      </div>
       <div id="exp-progress"></div>
       <div class="dialog-actions">
         <button class="btn" id="exp-cancel-btn">Cancel</button>
         <button class="btn active" id="exp-start-btn">Export</button>
       </div>
     </div>
+  </div>
+
+  <!-- LOTTIE EXPORT DIALOG -->
+  <div id="export-lottie-dialog" class="hidden">
+    <div class="dialog-box">
+      <h3>Export Lottie</h3>
+      <div class="dialog-row">
+        <label>FPS</label>
+        <input type="number" id="lottie-fps" value="30" min="1" max="60" class="num-input">
+      </div>
+      <div class="dialog-row">
+        <label>Duration (s)</label>
+        <input type="number" id="lottie-duration" value="4" min="0.5" max="60" step="0.5" class="num-input">
+      </div>
+      <div class="dialog-row">
+        <label>Include points</label>
+        <input type="checkbox" id="lottie-show-points">
+      </div>
+      <div class="dialog-actions">
+        <button class="btn" id="lottie-cancel-btn">Cancel</button>
+        <button class="btn active" id="lottie-start-btn">Export</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COLOR PICKER POPUP -->
+  <div id="color-picker-popup" class="color-picker-popup" hidden>
+    <div class="cpp-section">
+      <div class="cpp-section-label">FILL</div>
+      <input type="color" id="fill-color-input" class="cpp-color-input" value="#ffffff">
+      <div id="cpp-fill-swatches" class="color-swatches"></div>
+    </div>
+    <div class="cpp-divider"></div>
+    <div class="cpp-section">
+      <div class="cpp-section-label">STROKE</div>
+      <input type="color" id="stroke-color-input" class="cpp-color-input" value="#ffffff">
+      <div id="cpp-stroke-swatches" class="color-swatches"></div>
+    </div>
+    <button class="cpp-close-btn">✕</button>
   </div>
 
   <script type="module" src="main.js"></script>
