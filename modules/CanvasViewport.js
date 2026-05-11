@@ -191,25 +191,34 @@ export class CanvasViewport {
       const d = model.toPathString();
       const t = model.toTransformString();
 
-      if (!model.visible) {
-        el.setAttribute('visibility', 'hidden');
-      } else {
-        el.setAttribute('visibility', 'visible');
-        el.setAttribute('d', d);
-        if (t) el.setAttribute('transform', t); else el.removeAttribute('transform');
+      const vis = model.visible ? 'visible' : 'hidden';
+      if (el._cVis !== vis) { el.setAttribute('visibility', vis); el._cVis = vis; }
+
+      if (model.visible) {
+        if (el._cD !== d) { el.setAttribute('d', d); el._cD = d; }
+        if (el._cT !== t) {
+          if (t) el.setAttribute('transform', t); else el.removeAttribute('transform');
+          el._cT = t;
+        }
 
         if (showWireframe) {
-          el.setAttribute('fill', 'none');
           const wfStroke = model.stroke !== 'none' ? applyHSLDelta(model.stroke, model.strokeH, model.strokeS, model.strokeL) : '#888888';
-          el.setAttribute('stroke', wfStroke);
-          el.setAttribute('stroke-width', invZ.toFixed(6));
-          el.setAttribute('fill-opacity', '0');
+          const wfW = invZ.toFixed(6);
+          if (el._cFill !== 'none')   { el.setAttribute('fill', 'none');          el._cFill = 'none'; }
+          if (el._cStroke !== wfStroke){ el.setAttribute('stroke', wfStroke);      el._cStroke = wfStroke; }
+          if (el._cSW !== wfW)        { el.setAttribute('stroke-width', wfW);     el._cSW = wfW; }
+          if (el._cFO !== '0')        { el.setAttribute('fill-opacity', '0');     el._cFO = '0'; }
         } else {
-          el.setAttribute('fill',           applyHSLDelta(model.fill,   model.fillH,   model.fillS,   model.fillL));
-          el.setAttribute('fill-opacity',   model.fillOpacity);
-          el.setAttribute('stroke',         applyHSLDelta(model.stroke, model.strokeH, model.strokeS, model.strokeL));
-          el.setAttribute('stroke-width',   model.strokeWidth);
-          el.setAttribute('stroke-opacity', model.strokeOpacity ?? 1);
+          const fill   = applyHSLDelta(model.fill,   model.fillH,   model.fillS,   model.fillL);
+          const stroke = applyHSLDelta(model.stroke, model.strokeH, model.strokeS, model.strokeL);
+          const fo     = String(model.fillOpacity);
+          const sw     = String(model.strokeWidth);
+          const so     = String(model.strokeOpacity ?? 1);
+          if (el._cFill   !== fill)   { el.setAttribute('fill',           fill);   el._cFill   = fill; }
+          if (el._cFO     !== fo)     { el.setAttribute('fill-opacity',   fo);     el._cFO     = fo; }
+          if (el._cStroke !== stroke) { el.setAttribute('stroke',         stroke); el._cStroke = stroke; }
+          if (el._cSW     !== sw)     { el.setAttribute('stroke-width',   sw);     el._cSW     = sw; }
+          if (el._cSO     !== so)     { el.setAttribute('stroke-opacity', so);     el._cSO     = so; }
         }
       }
 
@@ -226,13 +235,15 @@ export class CanvasViewport {
         this._hitEls.set(id, hit);
       }
 
-      if (!model.visible) {
-        hit.setAttribute('visibility', 'hidden');
-      } else {
-        hit.setAttribute('visibility', 'visible');
-        hit.setAttribute('d', d);
-        hit.setAttribute('stroke-width', Math.max(10 * invZ, 2));
-        if (t) hit.setAttribute('transform', t); else hit.removeAttribute('transform');
+      if (hit._cVis !== vis) { hit.setAttribute('visibility', vis); hit._cVis = vis; }
+      if (model.visible) {
+        if (hit._cD !== d) { hit.setAttribute('d', d); hit._cD = d; }
+        const hitSW = String(Math.max(10 * invZ, 2));
+        if (hit._cSW !== hitSW) { hit.setAttribute('stroke-width', hitSW); hit._cSW = hitSW; }
+        if (hit._cT !== t) {
+          if (t) hit.setAttribute('transform', t); else hit.removeAttribute('transform');
+          hit._cT = t;
+        }
       }
     }
 

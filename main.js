@@ -1,13 +1,13 @@
 // main.js — SVG Oscillator Editor bootstrap
 
 import { parseSVGString }   from './modules/SVGParser.js';
-import { PathModel, Point, BezierHandle } from './modules/PathModel.js';
 import { CanvasViewport }   from './modules/CanvasViewport.js';
 import { PointOverlay }     from './modules/PointOverlay.js';
 import { OscillatorEngine } from './modules/OscillatorEngine.js';
 import { BindingSystem }    from './modules/BindingSystem.js';
 import { DragController, syncMirrorSlaves, inferPointTypes } from './modules/PathOperations.js';
 import { History }          from './modules/History.js';
+import { serializeFullState, deserializePaths, getSaves, persistSaves, autosave, loadAutosave } from './modules/Sketch.js';
 import { OscillatorPanel }  from './panels/OscillatorPanel.js';
 import { BindingPanel }     from './panels/BindingPanel.js';
 import { PathInspector }    from './panels/PathInspector.js';
@@ -38,56 +38,19 @@ const history    = new History(60);
 // ── History — snapshots include full state (paths + oscillators + bindings) ──
 
 function snapshotAll() {
-  return JSON.stringify(serializeFullState());
+  return JSON.stringify(serializeCurrentState());
 }
 
 function restorePathsFromData(data) {
   state.paths.clear();
-  for (const d of data) {
-    const m = new PathModel();
-    Object.assign(m, {
-      id: d.id, closed: d.closed, fill: d.fill, stroke: d.stroke,
-      strokeWidth: d.strokeWidth, baseStrokeWidth: d.baseStrokeWidth,
-      fillOpacity: d.fillOpacity, baseFillOpacity: d.baseFillOpacity,
-      strokeOpacity: d.strokeOpacity ?? 1, baseStrokeOpacity: d.baseStrokeOpacity ?? 1,
-      tx: d.tx, baseTx: d.baseTx, ty: d.ty, baseTy: d.baseTy,
-      rotation: d.rotation, baseRotation: d.baseRotation,
-      scaleX: d.scaleX, baseScaleX: d.baseScaleX,
-      scaleY: d.scaleY, baseScaleY: d.baseScaleY,
-      fillH: d.fillH ?? 0, baseFillH: d.baseFillH ?? 0,
-      fillS: d.fillS ?? 0, baseFillS: d.baseFillS ?? 0,
-      fillL: d.fillL ?? 0, baseFillL: d.baseFillL ?? 0,
-      strokeH: d.strokeH ?? 0, baseStrokeH: d.baseStrokeH ?? 0,
-      strokeS: d.strokeS ?? 0, baseStrokeS: d.baseStrokeS ?? 0,
-      strokeL: d.strokeL ?? 0, baseStrokeL: d.baseStrokeL ?? 0,
-      selected: d.selected, visible: d.visible,
-      mirrorSlaveId: d.mirrorSlaveId, mirrorAxis: d.mirrorAxis,
-    });
-    m.points = d.points.map(pd => {
-      const pt = new Point(pd.x, pd.y, pd.type);
-      pt.id = pd.id; pt.baseX = pd.baseX; pt.baseY = pd.baseY;
-      if (pd.handleIn) {
-        const h = new BezierHandle(pd.handleIn.x, pd.handleIn.y);
-        h.id = pd.handleIn.id; h.baseX = pd.handleIn.baseX; h.baseY = pd.handleIn.baseY;
-        pt.handleIn = h;
-      }
-      if (pd.handleOut) {
-        const h = new BezierHandle(pd.handleOut.x, pd.handleOut.y);
-        h.id = pd.handleOut.id; h.baseX = pd.handleOut.baseX; h.baseY = pd.handleOut.baseY;
-        pt.handleOut = h;
-      }
-      return pt;
-    });
-    state.paths.set(m.id, m);
-  }
+  for (const [id, m] of deserializePaths(data)) state.paths.set(id, m);
 }
 
-const AUTOSAVE_KEY = 'svg-osc-autosave';
 let _autoSaveTimer = null;
 function scheduleAutoSave() {
   clearTimeout(_autoSaveTimer);
   _autoSaveTimer = setTimeout(() => {
-    try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(serializeFullState())); } catch {}
+    autosave(serializeCurrentState());
   }, 1500);
 }
 
@@ -120,67 +83,10 @@ function _afterRestore() {
   oscPanel.render();
 }
 
-// ── Full state save/restore (includes oscillators + bindings) ──
+// ── Full state serialization — delegates to Sketch.js pure helpers ──
 
-function serializeFullState() {
-  return {
-    version: '1.1',
-    type: 'svg-oscillator-sketch',
-    paths: [...state.paths.values()].map(serializePath),
-    oscillators: [...oscEngine.oscillators.values()].map(o => ({
-      id: o.id, name: o.name, type: o.type, color: o.color, enabled: o.enabled,
-      // LFO
-      waveform: o.waveform, frequency: o.frequency, amplitude: o.amplitude,
-      phase: o.phase, offset: o.offset, curve: o.curve,
-      // Step
-      stepCount: o.stepCount, stepRate: o.stepRate, stepValues: o.stepValues, stepAmp: o.stepAmp,
-      // Random walk
-      rwRate: o.rwRate, rwSmooth: o.rwSmooth, rwMin: o.rwMin, rwMax: o.rwMax,
-      // Audio
-      audioBand: o.audioBand, audioSmooth: o.audioSmooth, audioAmplitude: o.audioAmplitude,
-      // Expression
-      expression: o.expression,
-      // Track
-      trackName: o.trackName, trackBand: o.trackBand,
-      trackSmooth: o.trackSmooth, trackAmplitude: o.trackAmplitude,
-      trackMuted: o.trackMuted, trackThreshold: o.trackThreshold,
-      // Envelope
-      envPoints: o.envPoints, envPeriod: o.envPeriod,
-      envRate: o.envRate, envAmplitude: o.envAmplitude, envSmooth: o.envSmooth, envLoop: o.envLoop, envSnap: o.envSnap,
-      // Device
-      deviceSensor: o.deviceSensor, deviceScale: o.deviceScale, deviceSmooth: o.deviceSmooth,
-    })),
-    bindings: [...bindingSys.bindings.values()].map(b => ({
-      id: b.id, oscillatorId: b.oscillatorId, target: b.target, scale: b.scale,
-    })),
-    viewBox: viewport.svgVB,
-  };
-}
-
-function serializePath(m) {
-  return {
-    id: m.id, closed: m.closed, fill: m.fill, stroke: m.stroke,
-    strokeWidth: m.strokeWidth, baseStrokeWidth: m.baseStrokeWidth,
-    fillOpacity: m.fillOpacity, baseFillOpacity: m.baseFillOpacity,
-    strokeOpacity: m.strokeOpacity, baseStrokeOpacity: m.baseStrokeOpacity,
-    tx: m.tx, baseTx: m.baseTx, ty: m.ty, baseTy: m.baseTy,
-    rotation: m.rotation, baseRotation: m.baseRotation,
-    scaleX: m.scaleX, baseScaleX: m.baseScaleX,
-    scaleY: m.scaleY, baseScaleY: m.baseScaleY,
-    fillH: m.fillH, baseFillH: m.baseFillH,
-    fillS: m.fillS, baseFillS: m.baseFillS,
-    fillL: m.fillL, baseFillL: m.baseFillL,
-    strokeH: m.strokeH, baseStrokeH: m.baseStrokeH,
-    strokeS: m.strokeS, baseStrokeS: m.baseStrokeS,
-    strokeL: m.strokeL, baseStrokeL: m.baseStrokeL,
-    selected: m.selected, visible: m.visible,
-    mirrorSlaveId: m.mirrorSlaveId, mirrorAxis: m.mirrorAxis,
-    points: m.points.map(p => ({
-      id: p.id, x: p.x, y: p.y, baseX: p.baseX, baseY: p.baseY, type: p.type,
-      handleIn:  p.handleIn  ? { id: p.handleIn.id,  x: p.handleIn.x,  y: p.handleIn.y,  baseX: p.handleIn.baseX,  baseY: p.handleIn.baseY  } : null,
-      handleOut: p.handleOut ? { id: p.handleOut.id, x: p.handleOut.x, y: p.handleOut.y, baseX: p.handleOut.baseX, baseY: p.handleOut.baseY } : null,
-    })),
-  };
+function serializeCurrentState() {
+  return serializeFullState(state.paths, oscEngine, bindingSys, viewport);
 }
 
 function stopAllTracks() {
@@ -204,7 +110,7 @@ function restoreFullState(obj) {
     }
   }
   if (obj.bindings) {
-    bindingSys.bindings.clear();
+    bindingSys.clear();
     for (const bd of obj.bindings) {
       const b = bindingSys.add(bd.oscillatorId, bd.target, bd.scale);
       b.id = bd.id;
@@ -398,9 +304,9 @@ function tick(timestamp) {
     bindingSys.applyAll(state.paths, oscEngine.oscillators);
     syncMirrorSlaves(state.paths);
   } else {
-    // Always update device sensors so the live display works when stopped
+    // Always update device/phone sensors so the live display works when stopped
     for (const osc of oscEngine.oscillators.values()) {
-      if (osc.enabled && osc.type === 'device') osc._tickDevice(dt);
+      if (osc.enabled && (osc.type === 'device' || osc.type === 'phone')) osc._tickDevice(dt);
     }
   }
 
@@ -476,10 +382,9 @@ function newCanvas() {
   pushHistory();
   state.paths.clear();
   oscEngine.oscillators.clear();
-  bindingSys.bindings.clear();
+  bindingSys.clear();
   state.selection = { pathId: null, pathIds: new Set(), pointIds: new Set(), highlightTarget: null };
-  history._undo = []; history._redo = [];
-  history._updateButtons();
+  history.clear();
   viewport.setViewBox({ x: 0, y: 0, w: 500, h: 500 });
   document.getElementById('drop-hint').classList.remove('hidden');
   inspector.render();
@@ -489,12 +394,10 @@ function newCanvas() {
 
 // ── Auto-save on page hide (iOS switches app → page stays alive but hidden) ──
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') {
-    try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(serializeFullState())); } catch {}
-  }
+  if (document.visibilityState === 'hidden') autosave(serializeCurrentState());
 });
 window.addEventListener('beforeunload', () => {
-  try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(serializeFullState())); } catch {}
+  autosave(serializeCurrentState());
 });
 
 // ── Startup ───────────────────────────────────────────
@@ -503,8 +406,8 @@ async function startup() {
   await new Promise(r => requestAnimationFrame(r));
   // Restore last autosave if present
   try {
-    const saved = localStorage.getItem(AUTOSAVE_KEY);
-    if (saved) { restoreFullState(JSON.parse(saved)); return; }
+    const saved = loadAutosave();
+    if (saved) { restoreFullState(saved); return; }
   } catch {}
   // Otherwise load base shapes
   try {
@@ -525,9 +428,8 @@ function loadSVG(text) {
   state.selection.pathId   = null;
   state.selection.pathIds  = new Set();
   state.selection.pointIds = new Set();
-  bindingSys.bindings.clear();
-  history._undo = []; history._redo = [];
-  history._updateButtons();
+  bindingSys.clear();
+  history.clear();
 
   for (const model of result.paths) {
     inferPointTypes(model);
@@ -851,24 +753,17 @@ document.getElementById('add-osc-btn').addEventListener('click', () => {
 });
 
 // ── Save / Load history ───────────────────────────────
-
-const SAVE_KEY = 'svg-osc-saves'; // array of {name, ts, data}
-
-function getSaves() {
-  try { return JSON.parse(localStorage.getItem(SAVE_KEY) || '[]'); } catch { return []; }
-}
+// getSaves / persistSaves / autosave / loadAutosave imported from modules/Sketch.js
 
 function saveSketch(name) {
   const saves = getSaves();
   const ts    = Date.now();
   const label = name || new Date(ts).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
-  saves.unshift({ name: label, ts, data: serializeFullState() });
+  saves.unshift({ name: label, ts, data: serializeCurrentState() });
   if (saves.length > 10) saves.length = 10;
-  try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(saves));
-    const btn = document.getElementById('btn-save-local');
-    if (btn) { btn.textContent = '✓'; setTimeout(() => { btn.textContent = 'SAVE'; }, 1000); }
-  } catch(e) { alert('Save failed: ' + e.message); }
+  if (!persistSaves(saves)) { alert('Save failed: localStorage quota exceeded'); return; }
+  const btn = document.getElementById('btn-save-local');
+  if (btn) { btn.textContent = '✓'; setTimeout(() => { btn.textContent = 'SAVE'; }, 1000); }
   _rebuildHistoryList();
 }
 
@@ -900,8 +795,7 @@ function _rebuildHistoryList() {
     del.title = 'Remove this save';
     del.addEventListener('click', (e) => {
       e.stopPropagation();
-      const updated = getSaves().filter(x => x.ts !== s.ts);
-      try { localStorage.setItem(SAVE_KEY, JSON.stringify(updated)); } catch {}
+      persistSaves(getSaves().filter(x => x.ts !== s.ts));
       _rebuildHistoryList();
     });
 
@@ -1048,7 +942,7 @@ function exportStaticSVG() {
 
 function exportOSC() {
   if (state.paths.size === 0) { showExportEmptyToast(); return; }
-  const data = serializeFullState();
+  const data = serializeCurrentState();
   data.timestamp = new Date().toISOString();
   downloadText(JSON.stringify(data, null, 2), 'sketch.osc', 'application/json');
 }
@@ -1250,6 +1144,7 @@ async function runAnimExport(format, fps, durationSec, width, height, showPoints
   canvas.width  = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
+  if (!ctx) { alert('Canvas 2D context unavailable — try a smaller resolution.'); return; }
 
   // Save current playback state
   const savedTime    = state.playback.globalTime;
@@ -1257,7 +1152,7 @@ async function runAnimExport(format, fps, durationSec, width, height, showPoints
   state.playback.playing = false;
 
   // Hide point overlay during export if not requested
-  const ovG    = document.getElementById('overlay-group');
+  const ovG     = document.getElementById('overlay-group');
   const prevVis = ovG ? ovG.style.visibility : '';
   if (ovG && !showPoints) ovG.style.visibility = 'hidden';
 
@@ -1266,64 +1161,68 @@ async function runAnimExport(format, fps, durationSec, width, height, showPoints
   const scaleX  = width  / (svgRect.width  || width);
   const scaleY  = height / (svgRect.height || height);
 
-  if (format === 'webm') {
-    const stream   = canvas.captureStream(fps);
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-      ? 'video/webm;codecs=vp9' : 'video/webm';
-    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
-    const chunks   = [];
-    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-    recorder.start(100);
+  let recorder = null;
+  try {
+    if (format === 'webm') {
+      const stream   = canvas.captureStream(fps);
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9' : 'video/webm';
+      recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
+      const chunks   = [];
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      recorder.start(100);
 
-    for (let f = 0; f < totalFrames; f++) {
-      state.playback.globalTime = f * dt;
-      oscEngine.tick(f * dt, dt, state.playback.bpm);
-      bindingSys.resetToBase(state.paths);
-      bindingSys.applyAll(state.paths, oscEngine.oscillators);
-      syncMirrorSlaves(state.paths);
-      viewport.render(state.paths, state.ui.showWireframe);
+      for (let f = 0; f < totalFrames; f++) {
+        state.playback.globalTime = f * dt;
+        oscEngine.tick(f * dt, dt, state.playback.bpm);
+        bindingSys.resetToBase(state.paths);
+        bindingSys.applyAll(state.paths, oscEngine.oscillators);
+        syncMirrorSlaves(state.paths);
+        viewport.render(state.paths, state.ui.showWireframe);
 
-      await svgToCanvas(svgEl, canvas, ctx, scaleX, scaleY);
-      onProgress(`Encoding frame ${f + 1} / ${totalFrames}`);
-      await yieldFrame(fps);
+        await svgToCanvas(svgEl, canvas, ctx, scaleX, scaleY);
+        onProgress(`Encoding frame ${f + 1} / ${totalFrames}`);
+        await yieldFrame(fps);
+      }
+
+      recorder.stop();
+      await new Promise(r => recorder.onstop = r);
+      downloadBlob(new Blob(chunks, { type: mimeType }), 'animation.webm');
+
+    } else {
+      // PNG sequence → JSZip
+      const JSZip = window.JSZip;
+      if (!JSZip) throw new Error('JSZip not loaded. Check CDN connection.');
+      const zip = new JSZip();
+
+      for (let f = 0; f < totalFrames; f++) {
+        state.playback.globalTime = f * dt;
+        oscEngine.tick(f * dt, dt, state.playback.bpm);
+        bindingSys.resetToBase(state.paths);
+        bindingSys.applyAll(state.paths, oscEngine.oscillators);
+        syncMirrorSlaves(state.paths);
+        viewport.render(state.paths, state.ui.showWireframe);
+
+        await svgToCanvas(svgEl, canvas, ctx, scaleX, scaleY);
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+        zip.file(`frame_${String(f).padStart(5, '0')}.png`, blob);
+        onProgress(`Processing frame ${f + 1} / ${totalFrames}`);
+        await yieldFrame();
+      }
+
+      onProgress('Compressing ZIP…');
+      const zipBlob = await zip.generateAsync({ type: 'blob' }, meta => {
+        onProgress(`Compressing: ${meta.percent.toFixed(0)}%`);
+      });
+      downloadBlob(zipBlob, 'animation_frames.zip');
     }
-
-    recorder.stop();
-    await new Promise(r => recorder.onstop = r);
-    downloadBlob(new Blob(chunks, { type: mimeType }), 'animation.webm');
-
-  } else {
-    // PNG sequence → JSZip
-    const JSZip = window.JSZip;
-    if (!JSZip) throw new Error('JSZip not loaded. Check CDN connection.');
-    const zip = new JSZip();
-
-    for (let f = 0; f < totalFrames; f++) {
-      state.playback.globalTime = f * dt;
-      oscEngine.tick(f * dt, dt, state.playback.bpm);
-      bindingSys.resetToBase(state.paths);
-      bindingSys.applyAll(state.paths, oscEngine.oscillators);
-      syncMirrorSlaves(state.paths);
-      viewport.render(state.paths, state.ui.showWireframe);
-
-      await svgToCanvas(svgEl, canvas, ctx, scaleX, scaleY);
-      const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
-      zip.file(`frame_${String(f).padStart(5, '0')}.png`, blob);
-      onProgress(`Processing frame ${f + 1} / ${totalFrames}`);
-      await yieldFrame();
-    }
-
-    onProgress('Compressing ZIP…');
-    const zipBlob = await zip.generateAsync({ type: 'blob' }, meta => {
-      onProgress(`Compressing: ${meta.percent.toFixed(0)}%`);
-    });
-    downloadBlob(zipBlob, 'animation_frames.zip');
+  } finally {
+    // Always restore playback state and overlay, even if export errors mid-way
+    state.playback.globalTime = savedTime;
+    state.playback.playing    = savedPlaying;
+    if (ovG) ovG.style.visibility = prevVis;
+    if (recorder && recorder.state === 'recording') recorder.stop();
   }
-
-  // Restore playback state and overlay visibility
-  state.playback.globalTime = savedTime;
-  state.playback.playing    = savedPlaying;
-  if (ovG) ovG.style.visibility = prevVis;
 }
 
 async function svgToCanvas(svgEl, canvas, ctx, scaleX, scaleY) {

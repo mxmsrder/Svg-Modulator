@@ -30,6 +30,12 @@ export class History {
     return next;
   }
 
+  clear() {
+    this._undo = [];
+    this._redo = [];
+    this._updateButtons();
+  }
+
   canUndo() { return this._undo.length > 0; }
   canRedo() { return this._redo.length > 0; }
 

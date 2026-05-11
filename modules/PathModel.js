@@ -193,10 +193,12 @@ export class PathModel {
     c.closed  = this.closed;
     c.fill    = this.fill;
     c.stroke  = this.stroke;
-    c.strokeWidth     = this.strokeWidth;
-    c.baseStrokeWidth = this.baseStrokeWidth;
-    c.fillOpacity     = this.fillOpacity;
-    c.baseFillOpacity = this.baseFillOpacity;
+    c.strokeWidth      = this.strokeWidth;
+    c.baseStrokeWidth  = this.baseStrokeWidth;
+    c.fillOpacity      = this.fillOpacity;
+    c.baseFillOpacity  = this.baseFillOpacity;
+    c.strokeOpacity    = this.strokeOpacity;
+    c.baseStrokeOpacity = this.baseStrokeOpacity;
     c.tx = this.tx; c.baseTx = this.baseTx;
     c.ty = this.ty; c.baseTy = this.baseTy;
     c.rotation = this.rotation; c.baseRotation = this.baseRotation;
@@ -208,6 +210,10 @@ export class PathModel {
     c.strokeH = this.strokeH; c.baseStrokeH = this.baseStrokeH;
     c.strokeS = this.strokeS; c.baseStrokeS = this.baseStrokeS;
     c.strokeL = this.strokeL; c.baseStrokeL = this.baseStrokeL;
+    c.selected      = this.selected;
+    c.visible       = this.visible;
+    c.mirrorSlaveId = this.mirrorSlaveId;
+    c.mirrorAxis    = this.mirrorAxis;
     c.points = this.points.map(p => p.clone());
     return c;
   }

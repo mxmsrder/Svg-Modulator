@@ -31,6 +31,78 @@ export const WAVEFORM_NAMES = Object.keys(WAVEFORMS);
 export const MODULATOR_TYPES = ['lfo', 'step', 'envelope', 'audio', 'track', 'expression', 'randomwalk', 'device', 'phone'];
 
 // ────────────────────────────────────────────────────
+// PhoneDataBus — shared singleton WebSocket connection for all phone-type oscillators
+// Prevents N oscillators from opening N parallel WebSocket connections.
+// ────────────────────────────────────────────────────
+class PhoneDataBus {
+  constructor() {
+    this._ws          = null;
+    this._subscribers = new Set(); // Set<Oscillator>
+    this._data        = {};
+    this.status       = 'disconnected';
+  }
+
+  subscribe(osc) {
+    this._subscribers.add(osc);
+    osc._phoneData = this._data; // share reference — all subscribers see the same object
+    if (!this._ws || this._ws.readyState > 1) this._connect();
+    else osc._deviceStatus = this.status;
+  }
+
+  unsubscribe(osc) {
+    this._subscribers.delete(osc);
+    if (this._subscribers.size === 0 && this._ws) {
+      this._ws.close();
+      this._ws = null;
+      this.status = 'disconnected';
+    }
+  }
+
+  _connect() {
+    const host = (typeof location !== 'undefined') ? location.hostname : 'localhost';
+    const url  = `wss://${host}:3443/ws`;
+    this.status = 'Connecting…';
+    this._broadcastStatus();
+    try {
+      this._ws = new WebSocket(url);
+      this._ws.addEventListener('open', () => {
+        this._ws.send(JSON.stringify({ role: 'editor' }));
+        this.status = 'Waiting for phone…';
+        this._broadcastStatus();
+      });
+      this._ws.addEventListener('close', () => {
+        this.status = 'Disconnected — run server.js';
+        this._ws = null;
+        this._broadcastStatus();
+      });
+      this._ws.addEventListener('error', () => {
+        this.status = 'No server — run: node server.js';
+        this._broadcastStatus();
+      });
+      this._ws.addEventListener('message', (e) => {
+        try {
+          const d = JSON.parse(e.data);
+          if (d.type === 'phone') {
+            Object.assign(this._data, d);
+            this.status = null;
+            this._broadcastStatus();
+          }
+        } catch {}
+      });
+    } catch {
+      this.status = 'WebSocket unavailable';
+      this._broadcastStatus();
+    }
+  }
+
+  _broadcastStatus() {
+    for (const osc of this._subscribers) osc._deviceStatus = this.status;
+  }
+}
+
+export const phoneBus = new PhoneDataBus();
+
+// ────────────────────────────────────────────────────
 // Modulator (supports all types)
 // ────────────────────────────────────────────────────
 export class Oscillator {
@@ -118,8 +190,7 @@ export class Oscillator {
     this._mouseX       = 0;  // 0..1
     this._mouseY       = 0;  // 0..1
     this._deviceMouseHandler  = null;
-    // Phone (WebSocket bridge) data
-    this._phoneWS     = null;
+    // Phone (WebSocket bridge) data — shared via PhoneDataBus singleton
     this._phoneData   = {};
 
     // Runtime output
@@ -373,42 +444,10 @@ export class Oscillator {
       case 'clock':
         break; // updates every tick via new Date().getSeconds()
       default:
-        // Phone sensors — connect via WebSocket bridge
+        // Phone sensors — connect via shared PhoneDataBus
         if (this.deviceSensor.startsWith('phone-') || this.type === 'phone') {
-          this._connectPhone();
+          phoneBus.subscribe(this);
         }
-    }
-  }
-
-  _connectPhone() {
-    if (this._phoneWS && this._phoneWS.readyState <= 1) return; // already connecting/open
-    const host = (typeof location !== 'undefined') ? location.hostname : 'localhost';
-    const url  = `wss://${host}:3443/ws`;
-    this._deviceStatus = 'Connecting…';
-    try {
-      this._phoneWS = new WebSocket(url);
-      this._phoneWS.addEventListener('open',  () => {
-        this._phoneWS.send(JSON.stringify({ role: 'editor' }));
-        this._deviceStatus = 'Waiting for phone…';
-      });
-      this._phoneWS.addEventListener('close', () => {
-        this._deviceStatus = 'Disconnected — run server.js';
-        this._phoneWS = null;
-      });
-      this._phoneWS.addEventListener('error', () => {
-        this._deviceStatus = 'No server — run: node server.js';
-      });
-      this._phoneWS.addEventListener('message', (e) => {
-        try {
-          const d = JSON.parse(e.data);
-          if (d.type === 'phone') {
-            this._phoneData   = d;
-            this._deviceStatus = null;
-          }
-        } catch {}
-      });
-    } catch {
-      this._deviceStatus = 'WebSocket unavailable';
     }
   }
 
@@ -422,11 +461,8 @@ export class Oscillator {
       try { this._lightSensor.stop(); } catch {}
       this._lightSensor = null;
     }
-    if (this._phoneWS) {
-      this._phoneWS.close();
-      this._phoneWS = null;
-    }
-    // Clear battery reference (BatteryManager has no removeEventListener in all browsers)
+    // Unsubscribe from shared phone bus (closes WS only when last subscriber leaves)
+    phoneBus.unsubscribe(this);
     this._batteryMgr = null;
   }
 

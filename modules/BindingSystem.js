@@ -40,18 +40,33 @@ export const PATH_PROPERTIES = [
 // ────────────────────────────────────────────────────
 export class BindingSystem {
   constructor() {
-    this.bindings = new Map(); // id → Binding
+    this.bindings   = new Map(); // id → Binding
+    this._dirtyPaths = new Set(); // pathIds that have at least one binding — only these need resetToBase
   }
 
   add(oscId, target, scale) {
     const b = new Binding(oscId, target, scale);
     this.bindings.set(b.id, b);
+    this._dirtyPaths.add(target.pathId);
     return b;
   }
 
-  remove(id) { this.bindings.delete(id); }
+  remove(id) {
+    this.bindings.delete(id);
+    this._rebuildDirtyPaths();
+  }
+
+  clear() {
+    this.bindings.clear();
+    this._dirtyPaths.clear();
+  }
 
   get(id) { return this.bindings.get(id); }
+
+  _rebuildDirtyPaths() {
+    this._dirtyPaths.clear();
+    for (const b of this.bindings.values()) this._dirtyPaths.add(b.target.pathId);
+  }
 
   // Shift all point-index bindings on a given path by +1 or -1 (wrapping)
   cyclePointIndices(pathId, direction, pointCount) {
@@ -63,36 +78,12 @@ export class BindingSystem {
     }
   }
 
-  // ── Reset all animated values to their base ──────────
+  // ── Reset animated values to base — only for paths that have bindings ──────────
   resetToBase(paths) {
-    for (const model of paths.values()) {
-      model.strokeWidth    = model.baseStrokeWidth;
-      model.fillOpacity    = model.baseFillOpacity;
-      model.strokeOpacity  = model.baseStrokeOpacity;
-      model.rotation     = model.baseRotation;
-      model.scaleX       = model.baseScaleX;
-      model.scaleY       = model.baseScaleY;
-      model.tx           = model.baseTx;
-      model.ty           = model.baseTy;
-      model.fillH        = model.baseFillH;
-      model.fillS        = model.baseFillS;
-      model.fillL        = model.baseFillL;
-      model.strokeH      = model.baseStrokeH;
-      model.strokeS      = model.baseStrokeS;
-      model.strokeL      = model.baseStrokeL;
-
-      for (const pt of model.points) {
-        pt.x = pt.baseX;
-        pt.y = pt.baseY;
-        if (pt.handleIn) {
-          pt.handleIn.x = pt.handleIn.baseX;
-          pt.handleIn.y = pt.handleIn.baseY;
-        }
-        if (pt.handleOut) {
-          pt.handleOut.x = pt.handleOut.baseX;
-          pt.handleOut.y = pt.handleOut.baseY;
-        }
-      }
+    for (const pathId of this._dirtyPaths) {
+      const model = paths.get(pathId);
+      if (!model) continue;
+      _resetModelToBase(model);
     }
   }
 
@@ -126,6 +117,36 @@ export class BindingSystem {
   }
 }
 
+function _resetModelToBase(model) {
+  model.strokeWidth   = model.baseStrokeWidth;
+  model.fillOpacity   = model.baseFillOpacity;
+  model.strokeOpacity = model.baseStrokeOpacity;
+  model.rotation      = model.baseRotation;
+  model.scaleX        = model.baseScaleX;
+  model.scaleY        = model.baseScaleY;
+  model.tx            = model.baseTx;
+  model.ty            = model.baseTy;
+  model.fillH         = model.baseFillH;
+  model.fillS         = model.baseFillS;
+  model.fillL         = model.baseFillL;
+  model.strokeH       = model.baseStrokeH;
+  model.strokeS       = model.baseStrokeS;
+  model.strokeL       = model.baseStrokeL;
+  for (const pt of model.points) {
+    pt.x = pt.baseX;
+    pt.y = pt.baseY;
+    if (pt.handleIn)  { pt.handleIn.x  = pt.handleIn.baseX;  pt.handleIn.y  = pt.handleIn.baseY;  }
+    if (pt.handleOut) { pt.handleOut.x = pt.handleOut.baseX; pt.handleOut.y = pt.handleOut.baseY; }
+  }
+}
+
+const _CLAMP01 = new Set(['fillOpacity', 'strokeOpacity']);
+const _CLAMP0  = new Set(['strokeWidth']);
+
 function applyToProp(obj, prop, delta) {
-  if (prop in obj) obj[prop] += delta;
+  if (!(prop in obj)) return;
+  let v = obj[prop] + delta;
+  if      (_CLAMP01.has(prop)) v = Math.max(0, Math.min(1, v));
+  else if (_CLAMP0.has(prop))  v = Math.max(0, v);
+  obj[prop] = v;
 }
