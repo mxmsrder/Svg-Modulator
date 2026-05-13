@@ -1164,10 +1164,13 @@ export class OscillatorPanel {
     pop.style.top  = (rect.bottom + 6) + 'px';
     pop.style.left = Math.max(8, rect.left - 160) + 'px';
 
-    // Fetch LAN IPs from server
+    // Fetch LAN IPs from server (also picks up optional WS relay URL for cloud deployments)
     fetch('/api/server-info')
       .then(r => r.json())
-      .then(({ ips }) => { if (pop.isConnected) renderPop(ips); })
+      .then(({ ips, wsRelayUrl }) => {
+        if (wsRelayUrl) window.__WS_RELAY_URL = wsRelayUrl;
+        if (pop.isConnected) renderPop(ips || []);
+      })
       .catch(() => {}); // server may not be running; fallback already shown
 
     // Close on outside click

@@ -1,9 +1,16 @@
 {
   "sketches": [
-    { "name": "Starter",    "file": "sketches/starter.osc" }
+    { "name": "Starter",  "file": "sketches/starter.osc" },
+    { "name": "Schilf",   "file": "sketches/Schilf.osc"  }
   ],
   "svgs": [
-    { "name": "Base Shapes", "file": "svg-library/base-shapes.svg" },
-    { "name": "Star Logo",   "file": "svg-library/star-logo.svg" }
+    { "name": "Abstract", "file": "svg-library/Abstract.svg" },
+    { "name": "Arrows",   "file": "svg-library/Arrows.svg"   },
+    { "name": "Cross",    "file": "svg-library/Cross.svg"    },
+    { "name": "Letter A", "file": "svg-library/LetterA.svg"  },
+    { "name": "Light",    "file": "svg-library/Light.svg"    },
+    { "name": "Pointer",  "file": "svg-library/Pointer.svg"  },
+    { "name": "Smile",    "file": "svg-library/Smile.svg"    },
+    { "name": "X",        "file": "svg-library/X.svg"        }
   ]
 }

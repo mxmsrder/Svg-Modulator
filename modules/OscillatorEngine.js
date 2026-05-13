@@ -60,7 +60,23 @@ class PhoneDataBus {
 
   _connect() {
     const host = (typeof location !== 'undefined') ? location.hostname : 'localhost';
-    const url  = `wss://${host}:3443/ws`;
+    // Detect local dev: localhost, 127.0.0.1, or a bare IP (LAN address from server.js)
+    const isLocal = host === 'localhost' || host === '127.0.0.1'
+      || /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
+
+    // Allow an explicit relay URL injected at runtime (e.g. from a separate WS relay server)
+    const url = (typeof window !== 'undefined' && window.__WS_RELAY_URL)
+      ? window.__WS_RELAY_URL
+      : isLocal
+        ? `wss://${host}:3443/ws`
+        : null;
+
+    if (!url) {
+      this.status = 'Phone sensors need local server — run: node server.js';
+      this._broadcastStatus();
+      return;
+    }
+
     this.status = 'Connecting…';
     this._broadcastStatus();
     try {
