@@ -1,26 +1,34 @@
 #!/usr/bin/env node
-// server.js — HTTPS static file server + WebSocket bridge for iPhone sensor data
-// Usage:  node server.js [port]
-// Default port: 3443
+// server.js — Static file server + WebSocket bridge for iPhone sensor data
+//
+// LOCAL dev (default):  node server.js          → HTTPS on port 3443
+// Cloud relay mode:     PLAIN_HTTP=true node server.js  → plain HTTP on $PORT
+//   Deploy to Railway/Render and set PLAIN_HTTP=true — they terminate TLS at
+//   the load balancer. Set WS_RELAY_URL=wss://your-relay.railway.app/ws in
+//   your Vercel project env so phone.html and the editor connect to this relay.
 
 const https    = require('https');
 const http     = require('http');
 const fs       = require('fs');
 const path     = require('path');
-const crypto   = require('crypto');
 const { execSync } = require('child_process');
 const { WebSocketServer } = require('ws');
 
-const PORT = parseInt(process.argv[2] || '3443', 10);
-const ROOT = __dirname;
+// ── Mode detection ────────────────────────────────────────────────────────────
+// PLAIN_HTTP=true  → cloud relay mode (Railway/Render handle TLS)
+// Otherwise        → local HTTPS mode with self-signed cert
 
-// ── Self-signed TLS certificate ───────────────────────────────────────────────
-// Auto-generates cert.pem + key.pem on first run using openssl (must be installed)
+const CLOUD = process.env.PLAIN_HTTP === 'true';
+const PORT  = parseInt(process.env.PORT || process.argv[2] || (CLOUD ? '3000' : '3443'), 10);
+const ROOT  = __dirname;
+
+// ── Self-signed TLS certificate (local mode only) ─────────────────────────────
 
 function ensureCert() {
   const certPath = path.join(ROOT, 'cert.pem');
   const keyPath  = path.join(ROOT, 'key.pem');
-  if (fs.existsSync(certPath) && fs.existsSync(keyPath)) return { cert: fs.readFileSync(certPath), key: fs.readFileSync(keyPath) };
+  if (fs.existsSync(certPath) && fs.existsSync(keyPath))
+    return { cert: fs.readFileSync(certPath), key: fs.readFileSync(keyPath) };
   console.log('Generating self-signed certificate (first run)…');
   try {
     execSync(
@@ -29,7 +37,7 @@ function ensureCert() {
     );
     console.log('Certificate generated: cert.pem + key.pem');
     return { cert: fs.readFileSync(certPath), key: fs.readFileSync(keyPath) };
-  } catch (e) {
+  } catch {
     console.error('openssl not found. Install openssl or provide cert.pem + key.pem manually.');
     process.exit(1);
   }
@@ -54,19 +62,20 @@ function onRequest(req, res) {
   let urlPath = req.url.split('?')[0];
   if (urlPath === '/') urlPath = '/index.html';
 
-  // API: return LAN IPs so the editor can display the correct phone URL
+  // CORS headers so phone.html served from Vercel can fetch this server's endpoints
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
   if (urlPath === '/api/server-info') {
     const ifaces = require('os').networkInterfaces();
     const ips = Object.values(ifaces).flat()
       .filter(i => i.family === 'IPv4' && !i.internal)
       .map(i => i.address);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
-    res.end(JSON.stringify({ port: PORT, ips }));
+    res.end(JSON.stringify({ port: PORT, ips, cloud: CLOUD }));
     return;
   }
 
   const filePath = path.join(ROOT, urlPath);
-  // Prevent directory traversal
   if (!filePath.startsWith(ROOT + path.sep) && filePath !== ROOT) {
     res.writeHead(403); res.end('Forbidden'); return;
   }
@@ -79,31 +88,26 @@ function onRequest(req, res) {
     }
     const ext  = path.extname(filePath).toLowerCase();
     const mime = MIME[ext] || 'application/octet-stream';
-    res.writeHead(200, {
-      'Content-Type': mime,
-      'Cache-Control': 'no-cache',
-    });
+    res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': 'no-cache' });
     res.end(data);
   });
 }
 
-// ── Start servers ─────────────────────────────────────────────────────────────
+// ── Start server ──────────────────────────────────────────────────────────────
 
-const tls = ensureCert();
-
-const server = https.createServer(tls, onRequest);
+const server = CLOUD
+  ? http.createServer(onRequest)
+  : https.createServer(ensureCert(), onRequest);
 
 // ── WebSocket bridge ──────────────────────────────────────────────────────────
-// Phones connect with role='phone', editors connect with role='editor'
-// All data from phones is broadcast to all editors
+// Phones connect with role='phone', editors connect with role='editor'.
+// All data from phones is broadcast to all editors.
 
 const wss = new WebSocketServer({ server, path: '/ws' });
 const editors = new Set();
 const phones  = new Set();
 
 wss.on('connection', (ws) => {
-  // Role is established by the FIRST handshake message and never reclassified.
-  // Subsequent messages may carry sensor data without a `role` field — that's fine.
   let role = null;
 
   ws.on('message', (raw) => {
@@ -121,13 +125,10 @@ wss.on('connection', (ws) => {
         editors.add(ws);
         ws.send(JSON.stringify({ type: 'phone-status', connected: phones.size }));
       }
-      return; // first message is handshake only — don't relay
+      return;
     }
 
-    // Forward all phone messages to editors (sensor data)
-    if (role === 'phone') {
-      broadcast(editors, raw.toString());
-    }
+    if (role === 'phone') broadcast(editors, raw.toString());
   });
 
   ws.on('close', () => {
@@ -150,30 +151,35 @@ function broadcast(set, data) {
 }
 
 server.listen(PORT, '0.0.0.0', () => {
-  const interfaces = require('os').networkInterfaces();
-  const ips = Object.values(interfaces).flat()
+  if (CLOUD) {
+    console.log(`\n=== SVG Oscillator Relay (cloud mode) — port ${PORT} ===`);
+    console.log('WebSocket endpoint: ws://0.0.0.0:' + PORT + '/ws');
+    console.log('Set WS_RELAY_URL=wss://<your-domain>/ws in Vercel env vars.\n');
+    return;
+  }
+
+  const ips = Object.values(require('os').networkInterfaces()).flat()
     .filter(i => i.family === 'IPv4' && !i.internal)
     .map(i => i.address);
 
   console.log('\n=== SVG Oscillator Editor — HTTPS Server ===');
   console.log(`\nEditor: https://localhost:${PORT}`);
   if (ips.length) {
-    console.log(`\nPhone sensor page (open in Safari on iPhone):`);
-    for (const ip of ips) {
-      console.log(`  https://${ip}:${PORT}/phone.html`);
-    }
+    console.log('\nPhone sensor page (open in Safari on iPhone):');
+    for (const ip of ips) console.log(`  https://${ip}:${PORT}/phone.html`);
   }
   console.log('\nNote: Accept the self-signed certificate warning in your browser.');
-  console.log('On iPhone: Settings → Safari → Advanced → allow insecure certs (or trust the cert in Settings → General → About → Certificate Trust).\n');
+  console.log('On iPhone: trust the cert via Settings → General → About → Certificate Trust.\n');
 });
 
-// Also start a plain HTTP server on 8080 that redirects to HTTPS
-const redir = http.createServer((req, res) => {
-  const host = (req.headers.host || 'localhost').replace(/:\d+$/, '');
-  res.writeHead(301, { Location: `https://${host}:${PORT}${req.url}` });
-  res.end();
-});
-redir.listen(8080, () => console.log('HTTP redirect: http://localhost:8080 → HTTPS'));
+// HTTP→HTTPS redirect (local mode only; cloud proxy handles this)
+if (!CLOUD) {
+  http.createServer((req, res) => {
+    const host = (req.headers.host || 'localhost').replace(/:\d+$/, '');
+    res.writeHead(301, { Location: `https://${host}:${PORT}${req.url}` });
+    res.end();
+  }).listen(8080, () => console.log('HTTP redirect: http://localhost:8080 → HTTPS'));
+}
 
 process.on('SIGINT',  () => { console.log('\nShutting down…'); process.exit(0); });
 process.on('SIGTERM', () => { process.exit(0); });

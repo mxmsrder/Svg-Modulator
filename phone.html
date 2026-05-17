@@ -222,8 +222,21 @@
   });
 
   // ── WebSocket + send loop ─────────────────────────────
-  function connectWS() {
-    const url = `wss://${location.host}/ws`;
+  let _resolvedWSUrl = null;
+  async function resolveWSUrl() {
+    if (_resolvedWSUrl) return _resolvedWSUrl;
+    try {
+      const r = await fetch('/api/server-info');
+      const { wsRelayUrl } = await r.json();
+      _resolvedWSUrl = wsRelayUrl || `wss://${location.host}/ws`;
+    } catch {
+      _resolvedWSUrl = `wss://${location.host}/ws`;
+    }
+    return _resolvedWSUrl;
+  }
+
+  async function connectWS() {
+    const url = await resolveWSUrl();
     ws = new WebSocket(url);
     ws.addEventListener('open', () => {
       ws.send(JSON.stringify({ role: 'phone' }));

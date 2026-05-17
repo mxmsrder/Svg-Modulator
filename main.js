@@ -409,10 +409,14 @@ async function startup() {
     const saved = loadAutosave();
     if (saved) { restoreFullState(saved); return; }
   } catch {}
-  // Otherwise load base shapes
+  // Load starter sketch and begin playing
   try {
-    const resp = await fetch('./svg-library/base-shapes.svg');
-    if (resp.ok) { loadSVG(await resp.text()); }
+    const resp = await fetch('./sketches/starter.osc');
+    if (resp.ok) {
+      restoreFullState(JSON.parse(await resp.text()));
+      startPlayback();
+      return;
+    }
   } catch {}
 }
 startup();
